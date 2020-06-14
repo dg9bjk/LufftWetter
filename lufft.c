@@ -45,7 +45,7 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
 int encode(char arrayTX[SerialArray],int command)
 {
     unsigned short result;	// CRC-Berechnung
-    int errorstop = 0;
+    int runstop = 0;
     int count;
 
     switch(command)
@@ -58,50 +58,142 @@ int encode(char arrayTX[SerialArray],int command)
                                 break;
 
         case 2:			// Geraeteinfo
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count=encode(arrayTX,21);
+                                count=encode(arrayTX,22);
+                                count=encode(arrayTX,23);
+                                count=encode(arrayTX,24);
+                                count=encode(arrayTX,25);
+                                count=encode(arrayTX,26);
+                                count=encode(arrayTX,27);
+                                count=encode(arrayTX,28);
+                                runstop = 1;
+                                break;
+
+        case 21:		// Gerätebezeichnung 10hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x10; // Gerätebezeichnung
+                                break;
+
+        case 22:		// Gerätebeschreibung 11hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x11; // Gerätebeschreibung
+                                break;
+
+        case 23:		// Hard- und Softwareversion 12hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x12; // Hard- und Softwareversion
+                                break;
+
+        case 24:		// erweiterte Vesionsinfo 13hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x13; // erweiterte Versionsinfo
+                                break;
+
+        case 25:		// Grösse EEPROM 14hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x14; // Grösse EEPROM
+                                break;
+
+        case 26:		// Anzahl verfügbare Kanäle 15hex
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x15; // Anzahl verfügbare Kanäle
+                                break;
+
+        case 27:		// Nummern der Kanäle 16hex
+                                count = 16;
+                                arrayTX[6] = 0x04;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x16; // Nummern der Kanäle
+                                arrayTX[11] = 0x00; // Blocknummer
+                                break;
+
+        case 28:		// komplette Kanalinfo 30hex
+                                count = 16;
+                                arrayTX[6] = 0x04;
+                                arrayTX[8] = 0x2D; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x30; // Messwerttyp
+                                arrayTX[11] = 0x00; // Kanal
                                 break;
 
         case 3:			// Onlinedaten Einzeln
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 14;
+                                arrayTX[6] = 0x02;
+                                arrayTX[8] = 0x23; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
                                 break;
 
         case 4:			// Onlinedaten Mehrfach
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 14;
+                                arrayTX[6] = 0x02;
+                                arrayTX[8] = 0x2F; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
                                 break;
 
         case 5:			// Reset
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 15;
+                                arrayTX[6] = 0x03;
+                                arrayTX[8] = 0x25; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x10; // Parameter
                                 break;
 
         case 6:			// Status
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 14;
+                                arrayTX[6] = 0x02;
+                                arrayTX[8] = 0x26; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
                                 break;
 
         case 7:			// Fehlermeldung
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 14;
+                                arrayTX[6] = 0x02;
+                                arrayTX[8] = 0x2C; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
                                 break;
 
         case 8:			// UhrzeitSet
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 18;
+                                arrayTX[6] = 0x06;
+                                arrayTX[8] = 0x27; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = 0x00; // Unixzeit  0- 8
+                                arrayTX[11] = 0x00; // Unixzeit  9-16
+                                arrayTX[12] = 0x00; // Unixzeit 17-24
+                                arrayTX[13] = 0x00; // Unixzeit 25-32
                                 break;
 
         case 9:			// UhrzeitGet
-                                count = 0;
-                                arrayTX[6] = 0x00;
+                                count = 14;
+                                arrayTX[6] = 0x02;
+                                arrayTX[8] = 0x28; // Kommando
+                                arrayTX[9] = 0x10; // Parameter
                                 break;
 
-        default:		errorstop=1;
+        default:		runstop=1;
                                 break;
     }
 
-    if(!errorstop)
+    if(!runstop)
     {
         arrayTX[0] = 0x01; //SOH - fix
         arrayTX[1] = 0x10; // Version - fix
