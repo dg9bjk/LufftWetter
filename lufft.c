@@ -7,7 +7,7 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
     unsigned short crc_buff;
     char puffer;
     
-    crc_buff = 0xffff;
+    crc_buff = 0xffff;	// Startwert
     
     for(n=0;n<count-3;n++) // Die letzten Positionen sind Checksumme und EOT - nicht in der Checksumme
     {
@@ -24,7 +24,6 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
             puffer = puffer >> 1;
         }
     }
-//    printf("CRC:%X\n",crc_buff);
     return(crc_buff);
 }
 
@@ -58,7 +57,7 @@ int encode(char arrayTX[SerialArray])
     return(count);
 }
 
-int decode(int count)
+int decode(char arrayRX[SerialArray],int count)
 {
     ;
 }
