@@ -4,11 +4,12 @@
 #include <stdio.h>
 #include <time.h>
 
+#define TIMEOUT 10	// Sekunden
+#define DEBUG 1
+
 #include "serial.c"
 #include "lufft.c"
 
-#define TIMEOUT 10	// Sekunden
-#define DEBUG 1
 
 void debugdisplay(char array[SerialArray],int count)
 {
@@ -27,13 +28,17 @@ int main()
     int fdserial;
     char arrayTX[SerialArray];
     char arrayRX[SerialArray];
+    struct lufftdaten station;
+    
+    station.StationAddr = 0x7001;
+    station.PCAddr = 0xf001;
     
     fdserial=SerialPortInit();
 
     do{
         memset(arrayTX,0,SerialArray);
         memset(arrayRX,0,SerialArray);
-        count = encode(arrayTX);
+        count = encode(arrayTX,1);
         if(DEBUG)
             debugdisplay(arrayTX,count);
 
@@ -43,7 +48,7 @@ int main()
         if(DEBUG)
             debugdisplay(arrayRX,count);
 
-        decode(arrayRX,count);
+        decode(arrayRX,count,&station);
     
         sleep(TIMEOUT);
         n++;
