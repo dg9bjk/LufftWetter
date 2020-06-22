@@ -1,16 +1,66 @@
-#include <string.h>
-#define Befehllaenge 20
+#include "serial.c"
+#define Befehllaenge 41
 
 // Datenarray
+struct ErweiterteInfo
+{
+    int Lfdnr;
+    int Proddate;
+    int Project;
+    int stueli;
+    int splan;
+    int hardware;
+    int software;
+    int e2version;
+    int diveversion;
+};
+
+struct Kanal
+{
+    int block;
+    int maxnummer;
+    int nummer;
+    char groesse[21];
+    char einheit[16];
+    int mwtyp;
+    int datetyp;
+    char min[21];
+    char max[21];
+    struct Kanal *next;
+};
+
 struct lufftdaten
 {
-    int Hardwareversion;
-    int Softwareversion;
     int StationAddr;
     int PCAddr;
+    int Hardwareversion;
+    int Softwareversion;
+    int EEPROMSize;
+    int AnzahlKanaele;
+    int AnzahlBloecke;
     int Command;
     char Befehl[Befehllaenge];
+    char Geraetebezeichnung[Befehllaenge];
+    char Geraetebeschreibung[Befehllaenge];
+    char serialnummer[Befehllaenge];
+    char NummernKanaele[Befehllaenge];
+    char Kanalinfo[Befehllaenge];
+    char Fehlermeldung[Befehllaenge];
+    struct ErweiterteInfo Devinfo;
+    struct Kanal *channel;
 };
+
+// Display der Serialdaten
+void debugdisplay(char array[SerialArray],int count)
+{
+    int i;
+
+    printf(" - Debug Länge %d: - ",count);
+    for(i=0;i<count;i++)
+        printf("%02x - ",array[i]);
+    printf("\n");
+}
+
 
 // Berechnung der Checksumme
 unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH bis ETX.
@@ -40,13 +90,16 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
     }
     return(crc_buff);
 }
-
+//Musterfunktion -> am Ende zu finden
+int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j);
 // Sende Abfrage Versionsnummer
-int encode(char arrayTX[SerialArray],int command)
+int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten *daten,int opt1,int opt2)
 {
     unsigned short result;	// CRC-Berechnung
     int runstop = 0;
     int count;
+    int i;
+    int *ptr;
 
     switch(command)
     {
@@ -58,14 +111,22 @@ int encode(char arrayTX[SerialArray],int command)
                                 break;
 
         case 2:			// Geraeteinfo
-                                count=encode(arrayTX,21);
-                                count=encode(arrayTX,22);
-                                count=encode(arrayTX,23);
-                                count=encode(arrayTX,24);
-                                count=encode(arrayTX,25);
-                                count=encode(arrayTX,26);
-                                count=encode(arrayTX,27);
-                                count=encode(arrayTX,28);
+                                request(fdserial,21,daten,0,0); // Gerätebezeichnung
+                                request(fdserial,22,daten,0,0); // Gerätebeschreibung
+                                request(fdserial,23,daten,0,0); // Hard- und Softwareversion
+                                request(fdserial,24,daten,0,0); // erweiterte Info
+                                request(fdserial,25,daten,0,0); // Groesse EEPROM
+                                request(fdserial,26,daten,0,0); // Anzahl der Kanaele
+                                for(i=0;i<daten->AnzahlBloecke;i++)
+                                    request(fdserial,27,daten,i,0); // Nummern der Kanaele
+                                    
+                                ptr = &daten->channel;
+                                for(i=0;i<daten->AnzahlKanaele;i++)
+				{
+                                    request(fdserial,28,daten,ptr->nummer,0); // Kanalinfo
+				    ptr= daten->channel->next;
+				}
+                                count=0;
                                 runstop = 1;
                                 break;
 
@@ -123,16 +184,17 @@ int encode(char arrayTX[SerialArray],int command)
                                 arrayTX[8] = 0x2D; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
                                 arrayTX[10] = 0x16; // Nummern der Kanäle
-                                arrayTX[11] = 0x00; // Blocknummer
+                                arrayTX[11] = opt1; // Blocknummer
                                 break;
 
         case 28:		// komplette Kanalinfo 30hex
-                                count = 16;
-                                arrayTX[6] = 0x04;
+                                count = 17;
+                                arrayTX[6] = 0x05;
                                 arrayTX[8] = 0x2D; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
                                 arrayTX[10] = 0x30; // Messwerttyp
-                                arrayTX[11] = 0x00; // Kanal
+                                arrayTX[11] = opt1 & 0x00ff; // Kanal low
+                                arrayTX[12] = (opt1 >> 8) & 0x00ff; // Kanal high
                                 break;
 
         case 3:			// Onlinedaten Einzeln
@@ -189,7 +251,8 @@ int encode(char arrayTX[SerialArray],int command)
                                 arrayTX[9] = 0x10; // Parameter
                                 break;
 
-        default:		runstop=1;
+        default:		count=0;
+                                runstop=1;
                                 break;
     }
 
@@ -226,6 +289,9 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
 
 int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
 {
+    int i;
+    char buffer[10];
+
     if((arrayRX[0] == 0x01) & (arrayRX[7] == 0x02) & (arrayRX[8 + arrayRX[6]] == 0x03) & (arrayRX[11 + arrayRX[6]] == 0x04)) //SOH + STX + ETX + EOT
     {
         if(arrayRX[1] == 0x10) // Protokoll-Version 1.0
@@ -243,7 +309,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
                                             daten->Hardwareversion = arrayRX[11];
                                             daten->Softwareversion = arrayRX[12];
                                             if(DEBUG)
-                                                printf("Debug: %s %d %d\n",daten->Befehl,daten->Hardwareversion,daten->Softwareversion);
+                                                printf("Debug: %s Hardware: %.1f Software: %.1f\n",daten->Befehl,(float)daten->Hardwareversion/10,(float)daten->Softwareversion/10);
                                         }
                                         else
                                             printf("Error 103: Falsche Befehlsversion\n");
@@ -255,6 +321,91 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Geraeteinfo",11);
                                             daten->Command = 2;
+                                            if(arrayRX[11] == 0x10)
+                                                {
+                                                    memset(daten->Geraetebezeichnung,0x0,Befehllaenge);
+                                                    for(i=0;i<arrayRX[6] & i<Befehllaenge-1;i++)
+                                                        daten->Geraetebezeichnung[i] = arrayRX[12 + i];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s Gerätebezeichnung: %s\n",daten->Befehl,daten->Geraetebezeichnung);
+
+                                                }
+                                            else if(arrayRX[11] == 0x11)
+                                                {
+                                                    memset(daten->Geraetebeschreibung,0x0,Befehllaenge);
+                                                    for(i=0;i<arrayRX[6] & i<Befehllaenge-1;i++)
+                                                        daten->Geraetebeschreibung[i] = arrayRX[12 + i];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s Gerätebeschreibung: %s\n",daten->Befehl,daten->Geraetebeschreibung);
+                                                }
+                                            else if(arrayRX[11] == 0x12)
+                                                {
+                                                    daten->Hardwareversion = arrayRX[12];
+                                                    daten->Softwareversion = arrayRX[13];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s Hardware: %.1f Software: %.1f\n",daten->Befehl,(float)daten->Hardwareversion/10,(float)daten->Softwareversion/10);
+                                                }
+                                            else if(arrayRX[11] == 0x13)
+                                                {
+                                                    daten->Devinfo.Lfdnr = (arrayRX[13] * 256) + arrayRX[12];
+                                                    daten->Devinfo.Proddate = (arrayRX[15] * 256) + arrayRX[14];
+                                                    daten->Devinfo.Project = (arrayRX[17] * 256) + arrayRX[16];
+                                                    daten->Devinfo.stueli = arrayRX[18];
+                                                    daten->Devinfo.splan = arrayRX[19];
+                                                    daten->Devinfo.hardware = arrayRX[20];
+                                                    daten->Devinfo.software = arrayRX[21];
+                                                    daten->Devinfo.e2version = arrayRX[22];
+                                                    daten->Devinfo.diveversion = (arrayRX[24] * 256) + arrayRX[23];
+                                                    
+                                                    memset(daten->serialnummer,0x0,Befehllaenge);
+                                                    sprintf(daten->serialnummer,"%d.%04d.%d.%d\0",daten->Devinfo.Lfdnr,daten->Devinfo.Proddate,daten->Devinfo.Project,daten->Devinfo.diveversion);
+
+                                                    if(DEBUG)
+                                                    {
+                                                        printf("Debug: %s Erweiterte Projektdaten: %d %04d %d %d %d %d %d %d %d\n",daten->Befehl,daten->Devinfo.Lfdnr,daten->Devinfo.Proddate,daten->Devinfo.Project,daten->Devinfo.stueli, daten->Devinfo.splan,daten->Devinfo.hardware,daten->Devinfo.software,daten->Devinfo.e2version,daten->Devinfo.diveversion);
+                                                        printf("Debug: %s Seriennummer:%s\n",daten->Befehl,daten->serialnummer);
+                                                    }
+                                                }
+                                            else if(arrayRX[11] == 0x14)
+                                                {
+                                                    daten->EEPROMSize = (arrayRX[13] * 256) + arrayRX[12];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s EEPROM: %d Byte\n",daten->Befehl,daten->EEPROMSize);
+                                                }
+                                            else if(arrayRX[11] == 0x15)
+                                                {
+                                                    daten->AnzahlKanaele = (arrayRX[13] * 256) + arrayRX[12];
+                                                    daten->AnzahlBloecke = arrayRX[14];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s %d Kanäle in %d Blöcken\n",daten->Befehl,daten->AnzahlKanaele,daten->AnzahlBloecke);
+                                                }
+                                            else if(arrayRX[11] == 0x16)
+                                                {
+                                                    daten->channel->block = arrayRX[12];
+                                                    daten->channel->maxnummer = arrayRX[13];
+                                                    for(i=0;i<daten->channel->maxnummer;i++)
+                                                    {
+                                                        daten->channel->nummer = (arrayRX[15+(i*2)] * 256) + arrayRX[14+(i*2)];
+                                                        daten->channel->next = malloc(sizeof(struct Kanal));
+                                                    if(DEBUG)
+                                                        printf("Debug: %s Block: %d Anzahl: %d Kanal: %d\n",daten->Befehl,daten->channel->block,daten->channel->maxnummer,daten->channel->nummer);
+                                                    }
+                                                }
+                                            else if(arrayRX[11] == 0x30)
+                                                {
+                                                    memset(daten->Kanalinfo,0x0,Befehllaenge);
+                                                    for(i=0;i<arrayRX[6] & i<Befehllaenge-1;i++)
+                                                        daten->Kanalinfo[i] = arrayRX[12 + i];
+                                                    if(DEBUG)
+                                                        printf("Debug: %s %s\n",daten->Befehl,daten->Kanalinfo);
+                                                }
+                                            else
+                                                {
+                                                memset(daten->Fehlermeldung,0x0,Befehllaenge);
+                                                strncpy(daten->Fehlermeldung,"Keine Daten lesbar!",19);
+                                                if(DEBUG)
+                                                    printf("Debug: %s %s\n",daten->Befehl,daten->Fehlermeldung);
+                                                }
                                         }
                                         else
                                             printf("Error 110: Falsche Befehlsversion\n");
@@ -354,4 +505,32 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
     }
     else
         printf("Error 100: Protokoll-Rahmen fehlerhaft.\n");
+}
+
+// Abfrage der Daten 
+int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j)
+{
+    int count;
+    char arrayTX[SerialArray];
+    char arrayRX[SerialArray];
+
+    memset(arrayTX,0,SerialArray);
+    memset(arrayRX,0,SerialArray);
+    
+    count = encode(arrayTX,cmd,fdserial,station,i,j);
+    if(count > 0)
+    {
+        if(DEBUG)
+            debugdisplay(arrayTX,count);
+
+            send(fdserial,arrayTX,count);
+        sleep(1);
+        count = recv(fdserial,arrayRX);
+        if(DEBUG)
+            debugdisplay(arrayRX,count);
+
+        decode(arrayRX,count,station);
+    }
+
+    return(0);
 }
