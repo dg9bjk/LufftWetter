@@ -46,13 +46,13 @@ int SerialPortInit()
         // Schreiben der Parameter
         if((tcsetattr(fd,TCSANOW,&SerialPortSettings)) != 0)
         {
-            printf("\n  ERROR ! Serial-Parameter\n");
+            printf("\n  ERROR ! Serial-Parameter\n\n");
             close(fd); // Zeiger zurückgeben
             return(-1);
         }
         else
         {
-            printf("\n  19200 Bd - 8n1\n");
+            printf("\n  19200 Bd - 8n1\n\n");
             tcflush(fd, TCIFLUSH);  // Löschen von Müll im Speicher
         }
     }

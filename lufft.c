@@ -2,6 +2,32 @@
 #define Befehllaenge 41
 
 // Datenarray
+union Minimum
+{
+    unsigned char a;
+    signed char b;
+    unsigned short c;
+    signed short d;
+    unsigned long e;
+    signed long f;
+    float g;
+    double h;
+    unsigned char z[8];
+};
+
+union Maximum
+{
+    unsigned char a;
+    signed char b;
+    unsigned short c;
+    signed short d;
+    unsigned long e;
+    signed long f;
+    float g;
+    double h;
+    unsigned char z[8];
+};
+
 struct ErweiterteInfo
 {
     int Lfdnr;
@@ -17,15 +43,16 @@ struct ErweiterteInfo
 
 struct Kanal
 {
+    int lfdnr;
     int block;
     int maxnummer;
     int nummer;
-    char groesse[21];
-    char einheit[16];
+    unsigned char groesse[21];
+    unsigned char einheit[16];
     int mwtyp;
     int datetyp;
-    char min[21];
-    char max[21];
+    union Minimum Min;
+    union Maximum Max;
     struct Kanal *next;
 };
 
@@ -38,16 +65,17 @@ struct lufftdaten
     int EEPROMSize;
     int AnzahlKanaele;
     int AnzahlBloecke;
+    int aktcntchannels;
     int Command;
-    char Befehl[Befehllaenge];
-    char Geraetebezeichnung[Befehllaenge];
-    char Geraetebeschreibung[Befehllaenge];
-    char serialnummer[Befehllaenge];
-    char NummernKanaele[Befehllaenge];
-    char Kanalinfo[Befehllaenge];
-    char Fehlermeldung[Befehllaenge];
+    unsigned char Befehl[Befehllaenge];
+    unsigned char Geraetebezeichnung[Befehllaenge];
+    unsigned char Geraetebeschreibung[Befehllaenge];
+    unsigned char serialnummer[Befehllaenge];
+    unsigned char NummernKanaele[Befehllaenge];
+    unsigned char Kanalinfo[Befehllaenge];
+    unsigned char Fehlermeldung[Befehllaenge];
     struct ErweiterteInfo Devinfo;
-    struct Kanal *channel;
+    struct Kanal *channels;
 };
 
 // Display der Serialdaten
@@ -91,15 +119,15 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
     return(crc_buff);
 }
 //Musterfunktion -> am Ende zu finden
-int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j);
+int request(int fdserial,int cmd,struct lufftdaten *station,struct Kanal *channels,int i,int j);
 // Sende Abfrage Versionsnummer
-int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten *daten,int opt1,int opt2)
+int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten *daten,struct Kanal *channels,int opt1,int opt2)
 {
     unsigned short result;	// CRC-Berechnung
     int runstop = 0;
     int count;
     int i;
-    int *ptr;
+    struct Kanal *ptr;
 
     switch(command)
     {
@@ -111,20 +139,21 @@ int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten 
                                 break;
 
         case 2:			// Geraeteinfo
-                                request(fdserial,21,daten,0,0); // Gerätebezeichnung
-                                request(fdserial,22,daten,0,0); // Gerätebeschreibung
-                                request(fdserial,23,daten,0,0); // Hard- und Softwareversion
-                                request(fdserial,24,daten,0,0); // erweiterte Info
-                                request(fdserial,25,daten,0,0); // Groesse EEPROM
-                                request(fdserial,26,daten,0,0); // Anzahl der Kanaele
+                                request(fdserial,21,daten,channels,0,0); // Gerätebezeichnung
+                                request(fdserial,22,daten,channels,0,0); // Gerätebeschreibung
+                                request(fdserial,23,daten,channels,0,0); // Hard- und Softwareversion
+                                request(fdserial,24,daten,channels,0,0); // erweiterte Info
+                                request(fdserial,25,daten,channels,0,0); // Groesse EEPROM
+                                request(fdserial,26,daten,channels,0,0); // Anzahl der Kanaele
+
                                 for(i=0;i<daten->AnzahlBloecke;i++)
-                                    request(fdserial,27,daten,i,0); // Nummern der Kanaele
+                                    request(fdserial,27,daten,channels,i,0); // Nummern der Kanaele
                                     
-                                ptr = &daten->channel;
+                                ptr = daten->channels;
                                 for(i=0;i<daten->AnzahlKanaele;i++)
 				{
-                                    request(fdserial,28,daten,ptr->nummer,0); // Kanalinfo
-				    ptr= daten->channel->next;
+                                    request(fdserial,28,daten,daten->channels,ptr->nummer,0); // Kanalinfo
+				    ptr = ptr->next;
 				}
                                 count=0;
                                 runstop = 1;
@@ -287,10 +316,12 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
     return(mainaddr);
 }
 
-int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
+int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct Kanal *channels)
 {
-    int i;
+    int i,j;
     char buffer[10];
+    struct Kanal *ptr;
+    int chnummer;
 
     if((arrayRX[0] == 0x01) & (arrayRX[7] == 0x02) & (arrayRX[8 + arrayRX[6]] == 0x03) & (arrayRX[11 + arrayRX[6]] == 0x04)) //SOH + STX + ETX + EOT
     {
@@ -381,23 +412,179 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
                                                 }
                                             else if(arrayRX[11] == 0x16)
                                                 {
-                                                    daten->channel->block = arrayRX[12];
-                                                    daten->channel->maxnummer = arrayRX[13];
-                                                    for(i=0;i<daten->channel->maxnummer;i++)
+                                                    i=0;
+                                                    ptr = daten->channels;
+                                                    
+                                                    do
                                                     {
-                                                        daten->channel->nummer = (arrayRX[15+(i*2)] * 256) + arrayRX[14+(i*2)];
-                                                        daten->channel->next = malloc(sizeof(struct Kanal));
-                                                    if(DEBUG)
-                                                        printf("Debug: %s Block: %d Anzahl: %d Kanal: %d\n",daten->Befehl,daten->channel->block,daten->channel->maxnummer,daten->channel->nummer);
-                                                    }
+                                                        if(ptr == NULL)
+                                                        {
+                                                            ptr = malloc(sizeof(struct Kanal));
+                                                            daten->channels = ptr;
+                                                            daten->aktcntchannels = 1;
+                                                            ptr->next = NULL;
+                                                        }
+                                                        else
+                                                        {
+                                                            while(ptr->next != NULL)
+                                                                ptr = ptr->next;   
+                                                            ptr->next = malloc(sizeof(struct Kanal));
+                                                            ptr = ptr->next;
+                                                            ptr->next = NULL;
+                                                        }
+                                                        ptr->block = arrayRX[12];
+                                                        ptr->maxnummer = arrayRX[13];
+                                                        ptr->nummer = (arrayRX[15+(i*2)] * 256) + arrayRX[14+(i*2)];
+                                                        ptr->lfdnr = daten->aktcntchannels;
+                                                        if(DEBUG)
+                                                            printf("Debug: %s %d Block: %d Anzahl: %d Kanal: %d\n",daten->Befehl,i,ptr->block,ptr->maxnummer,ptr->nummer);
+                                                        i++;
+                                                        daten->aktcntchannels++;
+                                                    }while(i < ptr->maxnummer);
                                                 }
                                             else if(arrayRX[11] == 0x30)
                                                 {
-                                                    memset(daten->Kanalinfo,0x0,Befehllaenge);
-                                                    for(i=0;i<arrayRX[6] & i<Befehllaenge-1;i++)
-                                                        daten->Kanalinfo[i] = arrayRX[12 + i];
+                                                    ptr = channels;
+                                                    chnummer = (arrayRX[13] * 256) + arrayRX[12];
+                                                    while(ptr->nummer != chnummer)
+                                                        ptr = ptr->next;
+                                                    memset(ptr->groesse,0x0,21);
+                                                    for(i=0;i<arrayRX[6] & i<20;i++)
+                                                        ptr->groesse[i] = arrayRX[14 + i];
+                                                    memset(ptr->einheit,0x0,16);
+                                                    for(i=0;i<arrayRX[6] & i<15;i++)
+                                                        ptr->einheit[i] = arrayRX[34 + i];
+                                                    ptr->mwtyp  = arrayRX[49];
+                                                    ptr->datetyp = arrayRX[50];
+
+                                                    if(ptr->datetyp == 0x10 || ptr->datetyp == 0x11) 
+                                                    {
+                                                        ptr->Min.z[0] = arrayRX[51];
+                                                        ptr->Max.z[0] = arrayRX[52];
+                                                    }
+                                                    else if(ptr->datetyp == 0x12 || ptr->datetyp == 0x13)
+                                                    {
+                                                        ptr->Min.z[0] = arrayRX[51];
+                                                        ptr->Min.z[1] = arrayRX[52];
+                                                        ptr->Max.z[0] = arrayRX[53];
+                                                        ptr->Max.z[1] = arrayRX[54];
+                                                    }
+                                                    else if(ptr->datetyp == 0x14 || ptr->datetyp == 0x15 || ptr->datetyp == 0x16)
+                                                    {
+                                                        ptr->Min.z[0] = arrayRX[51];
+                                                        ptr->Min.z[1] = arrayRX[52];
+                                                        ptr->Min.z[2] = arrayRX[53];
+                                                        ptr->Min.z[3] = arrayRX[54];
+                                                        ptr->Max.z[0] = arrayRX[55];
+                                                        ptr->Max.z[1] = arrayRX[56];
+                                                        ptr->Max.z[2] = arrayRX[57];
+                                                        ptr->Max.z[3] = arrayRX[58];
+                                                    }
+                                                    else if(ptr->datetyp == 0x17)
+                                                    {
+                                                        ptr->Min.z[0] = arrayRX[51];
+                                                        ptr->Min.z[1] = arrayRX[52];
+                                                        ptr->Min.z[2] = arrayRX[53];
+                                                        ptr->Min.z[3] = arrayRX[54];
+                                                        ptr->Min.z[4] = arrayRX[55];
+                                                        ptr->Min.z[5] = arrayRX[56];
+                                                        ptr->Min.z[6] = arrayRX[57];
+                                                        ptr->Min.z[7] = arrayRX[58];
+                                                        ptr->Max.z[0] = arrayRX[59];
+                                                        ptr->Max.z[1] = arrayRX[60];
+                                                        ptr->Max.z[2] = arrayRX[61];
+                                                        ptr->Max.z[3] = arrayRX[62];
+                                                        ptr->Max.z[4] = arrayRX[63];
+                                                        ptr->Max.z[5] = arrayRX[64];
+                                                        ptr->Max.z[6] = arrayRX[65];
+                                                        ptr->Max.z[7] = arrayRX[66];
+                                                    }
+                                                    else
+                                                    {
+                                                        ptr->Min.z[0] = 0x00;
+                                                        ptr->Min.z[1] = 0x00;
+                                                        ptr->Min.z[2] = 0x00;
+                                                        ptr->Min.z[3] = 0x00;
+                                                        ptr->Min.z[4] = 0x00;
+                                                        ptr->Min.z[5] = 0x00;
+                                                        ptr->Min.z[6] = 0x00;
+                                                        ptr->Min.z[7] = 0x00;
+                                                        ptr->Max.z[0] = 0x00;
+                                                        ptr->Max.z[1] = 0x00;
+                                                        ptr->Max.z[2] = 0x00;
+                                                        ptr->Max.z[3] = 0x00;
+                                                        ptr->Max.z[4] = 0x00;
+                                                        ptr->Max.z[5] = 0x00;
+                                                        ptr->Max.z[6] = 0x00;
+                                                        ptr->Max.z[7] = 0x00;
+                                                    }
+                                                    
                                                     if(DEBUG)
-                                                        printf("Debug: %s %s\n",daten->Befehl,daten->Kanalinfo);
+                                                    {
+                                                        printf("Debug: %s %d %s %s ",daten->Befehl,chnummer,ptr->groesse,ptr->einheit);
+                                                        if(ptr->mwtyp == 0x10)
+                                                            printf("%x -> Current - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x11)
+                                                            printf("%x -> Min - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x12)
+                                                            printf("%x -> Max - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x13)
+                                                            printf("%x -> Avg - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x14)
+                                                            printf("%x -> Sum - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x15)
+                                                            printf("%x -> Vct - ",ptr->mwtyp); 
+                                                        else
+                                                            printf("%x -> Unknown - ",ptr->mwtyp);
+                                                            
+                                                        if(ptr->datetyp == 0x10)
+                                                        {
+                                                            printf("%x -> U8 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.a,ptr->Max.a);
+                                                        }
+                                                        else if(ptr->datetyp == 0x11)
+                                                        {
+                                                            printf("%x -> S8 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.b,ptr->Max.b);
+                                                        }
+                                                        else if(ptr->datetyp == 0x12)
+                                                        {
+                                                            printf("%x -> U16 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.c,ptr->Max.c);
+                                                        }
+                                                        else if(ptr->datetyp == 0x13)
+                                                        {
+                                                            printf("%x -> S16 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.d,ptr->Max.d);
+                                                        }
+                                                        else if(ptr->datetyp == 0x14)
+                                                        {
+                                                            printf("%x -> U32 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.e,ptr->Max.e);
+                                                        }
+                                                        else if(ptr->datetyp == 0x15)
+                                                        {
+                                                            printf("%x -> S32 - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.f,ptr->Max.f);
+                                                        }
+                                                        else if(ptr->datetyp == 0x16)
+                                                        {
+                                                            printf("%x -> Float - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.g,ptr->Max.g);
+                                                        }
+                                                        else if(ptr->datetyp == 0x17)
+                                                        {
+                                                            printf("%x -> Double - ",ptr->datetyp);
+                                                            printf("%d %d",ptr->Min.h,ptr->Max.h);
+                                                        }
+                                                        else
+                                                        {
+                                                            printf("%x -> Unknown - ",ptr->datetyp);
+                                                            printf("??? ???");
+                                                        }
+                                                            
+                                                        printf("\n");
+                                                    }
                                                 }
                                             else
                                                 {
@@ -508,7 +695,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten)
 }
 
 // Abfrage der Daten 
-int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j)
+int request(int fdserial,int cmd,struct lufftdaten *station,struct Kanal *channels,int i,int j)
 {
     int count;
     char arrayTX[SerialArray];
@@ -517,7 +704,7 @@ int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j)
     memset(arrayTX,0,SerialArray);
     memset(arrayRX,0,SerialArray);
     
-    count = encode(arrayTX,cmd,fdserial,station,i,j);
+    count = encode(arrayTX,cmd,fdserial,station,channels,i,j);
     if(count > 0)
     {
         if(DEBUG)
@@ -529,8 +716,8 @@ int request(int fdserial,int cmd,struct lufftdaten *station,int i,int j)
         if(DEBUG)
             debugdisplay(arrayRX,count);
 
-        decode(arrayRX,count,station);
+        decode(arrayRX,count,station,channels);
     }
-
+    usleep(100000);
     return(0);
 }
