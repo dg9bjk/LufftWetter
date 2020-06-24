@@ -570,12 +570,12 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                                         else if(ptr->datetyp == 0x16)
                                                         {
                                                             printf("%x -> Float - ",ptr->datetyp);
-                                                            printf("%d %d",ptr->Min.g,ptr->Max.g);
+                                                            printf("%.3f %.3f",ptr->Min.g,ptr->Max.g);
                                                         }
                                                         else if(ptr->datetyp == 0x17)
                                                         {
                                                             printf("%x -> Double - ",ptr->datetyp);
-                                                            printf("%d %d",ptr->Min.h,ptr->Max.h);
+                                                            printf("%.3f %.3f",ptr->Min.h,ptr->Max.h);
                                                         }
                                                         else
                                                         {
