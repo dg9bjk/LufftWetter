@@ -2,20 +2,7 @@
 #define Befehllaenge 41
 
 // Datenarray
-union Minimum
-{
-    unsigned char a;
-    signed char b;
-    unsigned short c;
-    signed short d;
-    unsigned long e;
-    signed long f;
-    float g;
-    double h;
-    unsigned char z[8];
-};
-
-union Maximum
+union messdatenmix
 {
     unsigned char a;
     signed char b;
@@ -41,7 +28,7 @@ struct ErweiterteInfo
     int diveversion;
 };
 
-struct Kanal
+struct kanal
 {
     int lfdnr;
     int block;
@@ -51,12 +38,13 @@ struct Kanal
     unsigned char einheit[16];
     int mwtyp;
     int datetyp;
-    union Minimum Min;
-    union Maximum Max;
-    struct Kanal *next;
+    union messdatenmix Min;
+    union messdatenmix Max;
+    union messdatenmix lastvalue;
+    struct kanal *next;
 };
 
-struct lufftdaten
+struct devdaten
 {
     int StationAddr;
     int PCAddr;
@@ -66,6 +54,8 @@ struct lufftdaten
     int AnzahlKanaele;
     int AnzahlBloecke;
     int aktcntchannels;
+    int lastStatus;
+    int lastError;
     int Command;
     unsigned char Befehl[Befehllaenge];
     unsigned char Geraetebezeichnung[Befehllaenge];
@@ -75,7 +65,7 @@ struct lufftdaten
     unsigned char Kanalinfo[Befehllaenge];
     unsigned char Fehlermeldung[Befehllaenge];
     struct ErweiterteInfo Devinfo;
-    struct Kanal *channels;
+    struct kanal *channels;
 };
 
 // Display der Serialdaten
@@ -119,15 +109,15 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
     return(crc_buff);
 }
 //Musterfunktion -> am Ende zu finden
-int request(int fdserial,int cmd,struct lufftdaten *station,struct Kanal *channels,int i,int j);
+int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,int i,int j);
 // Sende Abfrage Versionsnummer
-int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten *daten,struct Kanal *channels,int opt1,int opt2)
+int encode(char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2)
 {
     unsigned short result;	// CRC-Berechnung
     int runstop = 0;
     int count;
     int i;
-    struct Kanal *ptr;
+    struct kanal *ptr;
 
     switch(command)
     {
@@ -227,10 +217,12 @@ int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten 
                                 break;
 
         case 3:			// Onlinedaten Einzeln
-                                count = 14;
-                                arrayTX[6] = 0x02;
+                                count = 16;
+                                arrayTX[6] = 0x04;
                                 arrayTX[8] = 0x23; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
+                                arrayTX[10] = opt1 & 0x00ff; // Kanal low
+                                arrayTX[11] = (opt1 >> 8) & 0x00ff; // Kanal high
                                 break;
 
         case 4:			// Onlinedaten Mehrfach
@@ -259,24 +251,6 @@ int encode(char arrayTX[SerialArray],int command,int fdserial,struct lufftdaten 
                                 count = 14;
                                 arrayTX[6] = 0x02;
                                 arrayTX[8] = 0x2C; // Kommando
-                                arrayTX[9] = 0x10; // Parameter
-                                break;
-
-        case 8:			// UhrzeitSet
-                                count = 18;
-                                arrayTX[6] = 0x06;
-                                arrayTX[8] = 0x27; // Kommando
-                                arrayTX[9] = 0x10; // Parameter
-                                arrayTX[10] = 0x00; // Unixzeit  0- 8
-                                arrayTX[11] = 0x00; // Unixzeit  9-16
-                                arrayTX[12] = 0x00; // Unixzeit 17-24
-                                arrayTX[13] = 0x00; // Unixzeit 25-32
-                                break;
-
-        case 9:			// UhrzeitGet
-                                count = 14;
-                                arrayTX[6] = 0x02;
-                                arrayTX[8] = 0x28; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
                                 break;
 
@@ -316,11 +290,11 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
     return(mainaddr);
 }
 
-int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct Kanal *channels)
+int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kanal *channels)
 {
     int i,j;
     char buffer[10];
-    struct Kanal *ptr;
+    struct kanal *ptr;
     int chnummer;
 
     if((arrayRX[0] == 0x01) & (arrayRX[7] == 0x02) & (arrayRX[8 + arrayRX[6]] == 0x03) & (arrayRX[11 + arrayRX[6]] == 0x04)) //SOH + STX + ETX + EOT
@@ -337,6 +311,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Version",7);
                                             daten->Command = 1;
+                                            
                                             daten->Hardwareversion = arrayRX[11];
                                             daten->Softwareversion = arrayRX[12];
                                             if(DEBUG)
@@ -352,6 +327,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Geraeteinfo",11);
                                             daten->Command = 2;
+                                            
                                             if(arrayRX[11] == 0x10)
                                                 {
                                                     memset(daten->Geraetebezeichnung,0x0,Befehllaenge);
@@ -419,7 +395,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                                     {
                                                         if(ptr == NULL)
                                                         {
-                                                            ptr = malloc(sizeof(struct Kanal));
+                                                            ptr = malloc(sizeof(struct kanal));
                                                             daten->channels = ptr;
                                                             daten->aktcntchannels = 1;
                                                             ptr->next = NULL;
@@ -428,7 +404,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                                         {
                                                             while(ptr->next != NULL)
                                                                 ptr = ptr->next;   
-                                                            ptr->next = malloc(sizeof(struct Kanal));
+                                                            ptr->next = malloc(sizeof(struct kanal));
                                                             ptr = ptr->next;
                                                             ptr->next = NULL;
                                                         }
@@ -560,12 +536,12 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                                         else if(ptr->datetyp == 0x14)
                                                         {
                                                             printf("%x -> U32 - ",ptr->datetyp);
-                                                            printf("%d %d",ptr->Min.e,ptr->Max.e);
+                                                            printf("%ld %ld",ptr->Min.e,ptr->Max.e);
                                                         }
                                                         else if(ptr->datetyp == 0x15)
                                                         {
                                                             printf("%x -> S32 - ",ptr->datetyp);
-                                                            printf("%d %d",ptr->Min.f,ptr->Max.f);
+                                                            printf("%ld %ld",ptr->Min.f,ptr->Max.f);
                                                         }
                                                         else if(ptr->datetyp == 0x16)
                                                         {
@@ -587,12 +563,12 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                                     }
                                                 }
                                             else
-                                                {
+                                            {
                                                 memset(daten->Fehlermeldung,0x0,Befehllaenge);
                                                 strncpy(daten->Fehlermeldung,"Keine Daten lesbar!",19);
                                                 if(DEBUG)
                                                     printf("Debug: %s %s\n",daten->Befehl,daten->Fehlermeldung);
-                                                }
+                                            }
                                         }
                                         else
                                             printf("Error 110: Falsche Befehlsversion\n");
@@ -604,6 +580,125 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"OnlinedatenE",12);
                                             daten->Command = 3;
+
+                                            chnummer = (arrayRX[12]*256) + arrayRX[11];
+                                            
+                                            if(daten->channels != NULL)
+                                            {
+                                                ptr = daten->channels;
+                                                while((ptr->next != NULL) & (chnummer != ptr->nummer))
+                                                    ptr = ptr->next;   
+                                            }
+                                            else
+                                            {	// Temporärer Kanal
+                                                ptr = channels;
+                                                ptr->datetyp = arrayRX[13];
+                                                ptr->nummer = chnummer;
+                                                ptr->next = NULL;
+
+                                                ptr->lfdnr = 0;
+                                                ptr->block = 0;
+                                                ptr->maxnummer = 1;
+                                                memset(ptr->groesse,0x0,21);
+                                                strncpy(ptr->groesse,"TempValue",9);
+                                                memset(ptr->einheit,0x0,16);
+                                                strncpy(ptr->einheit,"TempValue",9);
+                                                ptr->mwtyp = 0;
+                                                ptr->Min.a = 0;
+                                                ptr->Max.a = 0;
+                                            }
+
+                                            if((arrayRX[10] == 0x00) & (chnummer == ptr->nummer))
+                                            {
+                                                if(arrayRX[13] == ptr->datetyp)
+                                                {
+                                                    if(ptr->datetyp == 0x10 || ptr->datetyp == 0x11) 
+                                                    {
+                                                        ptr->lastvalue.z[0] = arrayRX[14];
+                                                    }
+                                                    else if(ptr->datetyp == 0x12 || ptr->datetyp == 0x13)
+                                                    {
+                                                        ptr->lastvalue.z[0] = arrayRX[14];
+                                                        ptr->lastvalue.z[1] = arrayRX[15];
+                                                    }
+                                                    else if(ptr->datetyp == 0x14 || ptr->datetyp == 0x15 || ptr->datetyp == 0x16)
+                                                    {
+                                                        ptr->lastvalue.z[0] = arrayRX[14];
+                                                        ptr->lastvalue.z[1] = arrayRX[15];
+                                                        ptr->lastvalue.z[2] = arrayRX[16];
+                                                        ptr->lastvalue.z[3] = arrayRX[17];
+                                                    }
+                                                    else if(ptr->datetyp == 0x17)
+                                                    {
+                                                        ptr->lastvalue.z[0] = arrayRX[14];
+                                                        ptr->lastvalue.z[1] = arrayRX[15];
+                                                        ptr->lastvalue.z[2] = arrayRX[16];
+                                                        ptr->lastvalue.z[3] = arrayRX[17];
+                                                        ptr->lastvalue.z[4] = arrayRX[18];
+                                                        ptr->lastvalue.z[5] = arrayRX[19];
+                                                        ptr->lastvalue.z[6] = arrayRX[20];
+                                                        ptr->lastvalue.z[7] = arrayRX[21];
+                                                    }
+                                                    else
+                                                    {
+                                                        ptr->lastvalue.z[0] = 0x00;
+                                                        ptr->lastvalue.z[1] = 0x00;
+                                                        ptr->lastvalue.z[2] = 0x00;
+                                                        ptr->lastvalue.z[3] = 0x00;
+                                                        ptr->lastvalue.z[4] = 0x00;
+                                                        ptr->lastvalue.z[5] = 0x00;
+                                                        ptr->lastvalue.z[6] = 0x00;
+                                                        ptr->lastvalue.z[7] = 0x00;
+                                                    }
+                                                }
+                                                else
+                                                    printf("Error 112: Falscher Datentyp\n");
+                                            }
+                                            
+                                            if(DEBUG)
+                                            {
+                                                printf("Debug: %s %d ",daten->Befehl,chnummer);
+                                                if(daten->channels != NULL)
+                                                {
+                                                    printf("%s ",ptr->groesse);
+                                                    if(ptr->mwtyp == 0x10)
+                                                        printf("%x -> Current - ",ptr->mwtyp);
+                                                    else if(ptr->mwtyp == 0x11)
+                                                        printf("%x -> Min - ",ptr->mwtyp);
+                                                    else if(ptr->mwtyp == 0x12)
+                                                        printf("%x -> Max - ",ptr->mwtyp);
+                                                    else if(ptr->mwtyp == 0x13)
+                                                        printf("%x -> Avg - ",ptr->mwtyp);
+                                                    else if(ptr->mwtyp == 0x14)
+                                                        printf("%x -> Sum - ",ptr->mwtyp);
+                                                    else if(ptr->mwtyp == 0x15)
+                                                        printf("%x -> Vct - ",ptr->mwtyp); 
+                                                    else
+                                                        printf("%x -> Unknown - ",ptr->mwtyp);
+                                                }
+                                                if(ptr->datetyp == 0x10)
+                                                    printf("%d",ptr->lastvalue.a);
+                                                else if(ptr->datetyp == 0x11)
+                                                    printf("%d",ptr->lastvalue.b);
+                                                else if(ptr->datetyp == 0x12)
+                                                    printf("%d",ptr->lastvalue.c);
+                                                else if(ptr->datetyp == 0x13)
+                                                    printf("%d",ptr->lastvalue.d);
+                                                else if(ptr->datetyp == 0x14)
+                                                    printf("%ld",ptr->lastvalue.e);
+                                                else if(ptr->datetyp == 0x15)
+                                                    printf("%ld",ptr->lastvalue.f);
+                                                else if(ptr->datetyp == 0x16)
+                                                    printf("%.3f",ptr->lastvalue.g);
+                                                else if(ptr->datetyp == 0x17)
+                                                    printf("%.3f",ptr->lastvalue.h);
+                                                else
+                                                    printf("Kein gültiger Wert\n");
+                                                            
+                                                if(daten->channels != NULL)
+                                                    printf(" %s",ptr->einheit);
+                                                        printf("\n");
+                                            }
                                         }
                                         else
                                             printf("Error 104: Falsche Befehlsversion\n");
@@ -626,6 +721,10 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Reset",5);
                                             daten->Command = 5;
+
+                                            if(arrayRX[10] == 0x00)
+                                                if(DEBUG)
+                                                    printf("Reset\n");
                                         }
                                         else
                                             printf("Error 105: Falsche Befehlsversion\n");
@@ -637,6 +736,13 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Status",6);
                                             daten->Command = 6;
+
+                                            if(arrayRX[10] == 0x00)
+                                            {
+                                                daten->lastStatus = arrayRX[11];
+                                                if(DEBUG)
+                                                    printf("Status: %d\n",daten->lastStatus);
+                                            }
                                         }
                                         else
                                             printf("Error 106: Falsche Befehlsversion\n");
@@ -648,31 +754,16 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
                                             memset(daten->Befehl,0x0,Befehllaenge);
                                             strncpy(daten->Befehl,"Fehlermeldung",13);
                                             daten->Command = 7;
+
+                                            if(arrayRX[10] == 0x00)
+                                            {
+                                                daten->lastError = arrayRX[11];
+                                                if(DEBUG)
+                                                    printf("Fehler: %d\n",daten->lastError);
+                                            }
                                         }
                                         else
                                             printf("Error 109: Falsche Befehlsversion\n");
-                                        break;
-
-                    case 0x27:		// Uhrzeit setzen
-                                        if(arrayRX[9] == 0x10)
-                                        {
-                                            memset(daten->Befehl,0x0,Befehllaenge);
-                                            strncpy(daten->Befehl,"UhrzeitSet",10);
-                                            daten->Command = 8;
-                                        }
-                                        else
-                                            printf("Error 107: Falsche Befehlsversion\n");
-                                        break;
-                    
-                    case 0x28:		// Uhrzeit lesen
-                                        if(arrayRX[9] == 0x10)
-                                        {
-                                            memset(daten->Befehl,0x0,Befehllaenge);
-                                            strncpy(daten->Befehl,"UhrzeitGet",10);
-                                            daten->Command = 9;
-                                        }
-                                        else
-                                            printf("Error 108: Falsche Befehlsversion\n");
                                         break;
 
                     default:		printf("Error 102: Unbekannter Befehl");
@@ -695,7 +786,7 @@ int decode(char arrayRX[SerialArray],int count,struct lufftdaten *daten,struct K
 }
 
 // Abfrage der Daten 
-int request(int fdserial,int cmd,struct lufftdaten *station,struct Kanal *channels,int i,int j)
+int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,int i,int j)
 {
     int count;
     char arrayTX[SerialArray];
