@@ -4,12 +4,11 @@
 *.o
 *.d~
 *.o~
+*.mk
+*.mk~
 a.out
 direkt/
 Wetterstation
 LufftWetterStation
 make~
 .gitignore~
-
-
-
