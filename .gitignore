@@ -1,7 +1,15 @@
 *.c~
 *.h~
+*.d
+*.o
+*.d~
+*.o~
 a.out
 direkt/
 Wetterstation
+LufftWetterStation
 make~
 .gitignore~
+
+
+
