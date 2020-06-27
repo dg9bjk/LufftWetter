@@ -12,3 +12,5 @@ Wetterstation
 LufftWetterStation
 make~
 .gitignore~
+/Default/
+/Debug/
