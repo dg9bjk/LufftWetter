@@ -1,11 +1,4 @@
-//###################################################################################################################################
-#include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-
-#define SerialArray 260    // Zeichenpuffer
+#include "wetterstation.h"
 
 // Initialisierung Serial-Port
 int SerialPortInit()

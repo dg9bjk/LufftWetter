@@ -1,2 +1,6 @@
 *.c~
+*.h~
 a.out
+direkt/
+Wetterstation
+make~

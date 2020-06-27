@@ -1,14 +1,6 @@
 // LufftWetterStation
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-
-#define TIMEOUT 10	// Sekunden
-#define DEBUG 1
-
-#include "lufft.c"
+#include "wetterstation.h"
+//#include "APIlufft.c"
 
 int main()
 {
@@ -16,30 +8,26 @@ int main()
     int i;
     int fdserial;
     struct devdaten station;
+    struct livedata aktdata;
     struct kanal *channels;
     struct kanal *ptr;
     
-    station.StationAddr = 0x7001;
+    station.StationAdr = 0x7001;
     station.PCAddr = 0xf001;
     station.channels = NULL;
         
     fdserial=SerialPortInit();
 
-        request(fdserial,1,&station,channels,0,0);    // Versionsabfrage
-        request(fdserial,2,&station,channels,0,0);     // Komplette Stationsinfo
-//        request(fdserial,5,&station,channels,0,0);    // Reset
-//        sleep(2);
-//        request(fdserial,6,&station,channels,0,0);    // Statusabfrage
-//        request(fdserial,7,&station,channels,0,0);    // Fehlerabfrage
+    getVersion(fdserial,&station);
+    getDeviceinfo(fdserial,&station);
+    getChanList(fdserial,&station);
+
     do{
+    	channels= station.channels;
+    	getSingleData(fdserial,&station,channels,0);
+    	getMultiData(fdserial,&station,channels,0);
 
-//        ptr = malloc(sizeof(struct kanal));
-//        request(fdserial,3,&station,ptr,100,0);    // Datenabfrage Einzel
-        request(fdserial,3,&station,station.channels,900,0);    // Datenabfrage Einzel
-        ptr = station.channels;
-        while((ptr->next != NULL) & (900 != ptr->nummer))
-           ptr = ptr->next;
-
+/*
         printf("Ergebnis: Kanal %d %s ",ptr->nummer,ptr->groesse);
 
         if(ptr->mwtyp == 0x10)
@@ -78,9 +66,12 @@ int main()
 
         printf(" %s",ptr->einheit);
         printf("\n");
-
-//        free(ptr);
+*/
         
+        doReset(fdserial,&station);	// Software-Reset für den Fehlerfall
+        getStatus(fdserial,&station);
+        getError(fdserial,&station);
+
         sleep(TIMEOUT);
         n++;
         sleep(1);
@@ -90,7 +81,7 @@ int main()
     ptr = station.channels;
     
     if(DEBUG)
-        for(i=0;i<station.aktcntchannels-1;i++)
+        for(i=0;i<aktdata.aktcntchannels-1;i++)
         {
             printf("Speicher: %03d - %02d - %03d - %03d - %p\n",ptr->lfdnr,ptr->block,ptr->maxnummer,ptr->nummer,ptr);
                 ptr = ptr->next;
