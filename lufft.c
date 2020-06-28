@@ -1,5 +1,4 @@
 #include "wetterstation.h"
-//#include "serial.c"
 
 // Display der Serialdaten
 void debugdisplay(char array[SerialArray],int count)
@@ -43,7 +42,7 @@ unsigned short crc_sum(char array[SerialArray],int count) // DatenArray von SOH 
 }
 
 // Sende Abfrage Versionsnummer
-int encode(char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2)
+int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2)
 {
     unsigned short result;	// CRC-Berechnung
     int runstop = 0;
@@ -201,7 +200,7 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
     return(mainaddr);
 }
 
-int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kanal *channels,struct livedata *aktdata)
+int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,struct kanal *channels,struct livedata *aktdata)
 {
     int i;
     struct kanal *ptr;
@@ -224,7 +223,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             
                                             daten->aktHardware = arrayRX[11];
                                             daten->aktSoftware = arrayRX[12];
-                                            if(DEBUG)
+                                            if(DEBUG == 3)
                                                 printf("Debug: %s Hardware: %.1f Software: %.1f\n",aktdata->Befehl,(float)daten->aktHardware/10,(float)daten->aktSoftware/10);
                                         }
                                         else
@@ -243,7 +242,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                                     memset(daten->Geraetebezeichnung,0x0,Befehllaenge);
                                                     for(i=0;(i < arrayRX[6]) & (i < Befehllaenge-1);i++)
                                                         daten->Geraetebezeichnung[i] = arrayRX[12 + i];
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                         printf("Debug: %s Gerätebezeichnung: %s\n",aktdata->Befehl,daten->Geraetebezeichnung);
 
                                                 }
@@ -252,14 +251,14 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                                     memset(daten->Geraetebeschreibung,0x0,Befehllaenge);
                                                     for(i=0;(i < arrayRX[6]) & (i < Befehllaenge-1);i++)
                                                         daten->Geraetebeschreibung[i] = arrayRX[12 + i];
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                         printf("Debug: %s Gerätebeschreibung: %s\n",aktdata->Befehl,daten->Geraetebeschreibung);
                                                 }
                                             else if(arrayRX[11] == 0x12)
                                                 {
                                                     daten->aktHardware = arrayRX[12];
                                                     daten->aktSoftware = arrayRX[13];
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                         printf("Debug: %s Hardware: %.1f Software: %.1f\n",aktdata->Befehl,(float)daten->aktHardware/10,(float)daten->aktSoftware/10);
                                                 }
                                             else if(arrayRX[11] == 0x13)
@@ -277,7 +276,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                                     memset(daten->serialnummer,0x0,Befehllaenge);
                                                     sprintf(daten->serialnummer,"%d.%04d.%d.%d",daten->Devinfo.lfddevnr,daten->Devinfo.proddate,daten->Devinfo.project,daten->Devinfo.deviceversion);
 
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                     {
                                                         printf("Debug: %s Erweiterte Projektdaten: %d %04d %d %d %d %d %d %d %d\n",aktdata->Befehl,daten->Devinfo.lfddevnr,daten->Devinfo.proddate,daten->Devinfo.project,daten->Devinfo.stueli, daten->Devinfo.splan,daten->Devinfo.hardware,daten->Devinfo.software,daten->Devinfo.e2version,daten->Devinfo.deviceversion);
                                                         printf("Debug: %s Seriennummer:%s\n",aktdata->Befehl,daten->serialnummer);
@@ -286,14 +285,14 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             else if(arrayRX[11] == 0x14)
                                                 {
                                                     daten->EEPROMSize = (arrayRX[13] * 256) + arrayRX[12];
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                         printf("Debug: %s EEPROM: %d Byte\n",aktdata->Befehl,daten->EEPROMSize);
                                                 }
                                             else if(arrayRX[11] == 0x15)
                                                 {
                                                     daten->AnzahlKanaele = (arrayRX[13] * 256) + arrayRX[12];
                                                     daten->AnzahlBloecke = arrayRX[14];
-                                                    if(DEBUG)
+                                                    if(DEBUG == 3)
                                                         printf("Debug: %s %d Kanäle in %d Blöcken\n",aktdata->Befehl,daten->AnzahlKanaele,daten->AnzahlBloecke);
                                                 }
                                             else if(arrayRX[11] == 0x16)
@@ -322,7 +321,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                                         ptr->maxnummer = arrayRX[13];
                                                         ptr->nummer = (arrayRX[15+(i*2)] * 256) + arrayRX[14+(i*2)];
                                                         ptr->lfdnr = aktdata->aktcntchannels;
-                                                        if(DEBUG)
+                                                        if(DEBUG == 3)
                                                             printf("Debug: %s %d Block: %d Anzahl: %d Kanal: %d\n",aktdata->Befehl,i,ptr->block,ptr->maxnummer,ptr->nummer);
                                                         i++;
                                                         aktdata->aktcntchannels++;
@@ -476,7 +475,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             {
                                                 memset(aktdata->Fehlermeldung,0x0,Befehllaenge);
                                                 strncpy(aktdata->Fehlermeldung,"Keine Daten lesbar!",19);
-                                                if(DEBUG)
+                                                if(DEBUG == 3)
                                                     printf("Debug: %s %s\n",aktdata->Befehl,aktdata->Fehlermeldung);
                                             }
                                         }
@@ -565,7 +564,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                                     printf("Error 112: Falscher Datentyp\n");
                                             }
                                             
-                                            if(DEBUG)
+                                            if(DEBUG == 3)
                                             {
                                                 printf("Debug: %s %d ",aktdata->Befehl,chnummer);
                                                 if(daten->channels != NULL)
@@ -633,7 +632,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             aktdata->Cmdnr = 5;
 
                                             if(arrayRX[10] == 0x00)
-                                                if(DEBUG)
+                                                if(DEBUG == 3)
                                                     printf("Reset\n");
                                         }
                                         else
@@ -650,7 +649,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             if(arrayRX[10] == 0x00)
                                             {
                                             	aktdata->lastStatus = arrayRX[11];
-                                                if(DEBUG)
+                                                if(DEBUG == 3)
                                                     printf("Status: %d\n",aktdata->lastStatus);
                                             }
                                         }
@@ -668,7 +667,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                                             if(arrayRX[10] == 0x00)
                                             {
                                             	aktdata->lastError = arrayRX[11];
-                                                if(DEBUG)
+                                                if(DEBUG > 2)
                                                     printf("Fehler: %d\n",aktdata->lastError);
                                             }
                                         }
@@ -685,7 +684,7 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
                 }
             }
             else
-                if(DEBUG)
+                if(DEBUG == 3)
                     printf("Debug: Falsche Adressierung.\n");
         }
         else
@@ -701,8 +700,8 @@ int decode(char arrayRX[SerialArray],int count,struct devdaten *daten,struct kan
 int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int j)
 {
     int count;
-    char arrayTX[SerialArray];
-    char arrayRX[SerialArray];
+    unsigned char arrayTX[SerialArray];
+    unsigned char arrayRX[SerialArray];
 
     memset(arrayTX,0,SerialArray);
     memset(arrayRX,0,SerialArray);
@@ -710,13 +709,21 @@ int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels
     count = encode(arrayTX,cmd,fdserial,station,channels,i,j);
     if(count > 0)
     {
-        if(DEBUG==1)
+        if(DEBUG == 2)
             debugdisplay(arrayTX,count);
 
-        send(fdserial,arrayTX,count);
+        if(SIMULATION > 0)
+        {
+        	count=sim(fdserial,arrayTX,arrayRX,count);
+        	sleep(1);
+        }
+        else
+        {
+        	send(fdserial,arrayTX,count);
         sleep(1);
-        count = recv(fdserial,arrayRX);
-        if(DEBUG==1)
+        	count = recv(fdserial,arrayRX);
+        }
+        if(DEBUG == 2)
             debugdisplay(arrayRX,count);
 
         decode(arrayRX,count,station,channels,aktdata);

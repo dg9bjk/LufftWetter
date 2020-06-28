@@ -9,9 +9,16 @@
 #include <errno.h>
 
 // Globale Definitionen
-#define DEBUG 1				// Ausgabe von Zusatzinformationen
-							// 1 = Mit Protokoll der Serial-Daten
-							// 2 = Nur Programminformationen
+#define DEBUG 2				// Ausgabe von Zusatzinformationen
+							// 0 = Aus
+							// 1 = frei
+							// 2 = Mit Protokoll der Serial-Daten
+							// 3 = Nur Programminformationen
+
+#define SIMULATION	1		// 0 = Aus
+							// 1 = Simulation korrekte Daten
+							// 2 = Simulation Fehler
+
 #define Befehllaenge 41 	// Arraylänge für die Datenstrings der Station.
 #define TIMEOUT 10			// Sekunden Verzögerung für den nächsten Zyklus
 #define SerialArray 260     // Zeichenpuffer der Serial-Schnittstelle (max. 256 Byte möglich + 4 Reserve
@@ -88,8 +95,9 @@ struct devdaten
 // Muster der Funktionen für den Aufruf (public)
 // serial.c
 int SerialPortInit();
-int send(int fdserial,char array[SerialArray],int count);
-int recv(int fdserial,char array[SerialArray]);
+int send(int fdserial,unsigned char array[SerialArray],int count);
+int recv(int fdserial,unsigned char array[SerialArray]);
+int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[SerialArray],int count);
 
 // lufft.c
 int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int j);

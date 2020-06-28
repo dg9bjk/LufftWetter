@@ -1,5 +1,4 @@
 #include "wetterstation.h"
-//#include "lufft.c"
 
 // Abfrage-API für LUFFT Wetterstation.
 

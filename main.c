@@ -1,6 +1,5 @@
 // LufftWetterStation
 #include "wetterstation.h"
-//#include "APIlufft.c"
 
 int main()
 {
@@ -19,13 +18,13 @@ int main()
     fdserial=SerialPortInit();
 
     getVersion(fdserial,&station);
-    getDeviceinfo(fdserial,&station);
-    getChanList(fdserial,&station);
+//    getDeviceinfo(fdserial,&station);
+//    getChanList(fdserial,&station);
 
-    do{
-    	channels= station.channels;
-    	getSingleData(fdserial,&station,channels,0);
-    	getMultiData(fdserial,&station,channels,0);
+//    do{
+//    	channels= station.channels;
+//    	getSingleData(fdserial,&station,channels,0);
+//    	getMultiData(fdserial,&station,channels,0);
 
 /*
         printf("Ergebnis: Kanal %d %s ",ptr->nummer,ptr->groesse);
@@ -68,19 +67,19 @@ int main()
         printf("\n");
 */
         
-        doReset(fdserial,&station);	// Software-Reset für den Fehlerfall
-        getStatus(fdserial,&station);
-        getError(fdserial,&station);
+//        doReset(fdserial,&station);	// Software-Reset für den Fehlerfall
+//        getStatus(fdserial,&station);
+//        getError(fdserial,&station);
 
-        sleep(TIMEOUT);
+//        sleep(TIMEOUT);
         n++;
         sleep(1);
-    }while(1);
+//    }while(1);
 
     printf("Ausgabe:\n");
     ptr = station.channels;
     
-    if(DEBUG)
+    if(DEBUG == 3)
         for(i=0;i<aktdata.aktcntchannels-1;i++)
         {
             printf("Speicher: %03d - %02d - %03d - %03d - %p\n",ptr->lfdnr,ptr->block,ptr->maxnummer,ptr->nummer,ptr);
@@ -97,5 +96,6 @@ int main()
         channels = ptr->next;
     };
 
+    printf("Ende\n");
     return(0);
 }
