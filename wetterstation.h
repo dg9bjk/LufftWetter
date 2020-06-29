@@ -9,11 +9,11 @@
 #include <errno.h>
 
 // Globale Definitionen
-#define DEBUG 2				// Ausgabe von Zusatzinformationen
+#define DEBUG 3				// Ausgabe von Zusatzinformationen
 							// 0 = Aus
 							// 1 = frei
-							// 2 = Mit Protokoll der Serial-Daten
-							// 3 = Nur Programminformationen
+							// 2 = Nur Programminformationen
+							// 3 = Mit Protokoll der Serial-Daten
 
 #define SIMULATION	1		// 0 = Aus
 							// 1 = Simulation korrekte Daten
@@ -103,12 +103,12 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int j);
 
 // APIlufft.c
-int getVersion(int fdserial,struct devdaten *station);
-int getDeviceinfo(int fdserial,struct devdaten *station);
-int getChanList(int fdserial,struct devdaten *station);
-int getSingleData(int fdserial, struct devdaten *station, struct kanal *dp,int opt1);
-int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,int opt1);
-int doReset(int fdserial,struct devdaten *station);
-int getStatus(int fdserial,struct devdaten *station);
-int getError(int fdserial,struct devdaten *station);
+int getVersion(int fdserial,struct devdaten *station,struct livedata *aktdata);
+int getDeviceinfo(int fdserial,struct devdaten *station,struct livedata *aktdata);
+int getChanList(int fdserial,struct devdaten *station,struct livedata *aktdata);
+int getSingleData(int fdserial, struct devdaten *station, struct kanal *dp,struct livedata *aktdata,int opt1);
+int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata,int opt1);
+int doReset(int fdserial,struct devdaten *station,struct livedata *aktdata);
+int getStatus(int fdserial,struct devdaten *station,struct livedata *aktdata);
+int getError(int fdserial,struct devdaten *station,struct livedata *aktdata);
 

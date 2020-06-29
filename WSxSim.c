@@ -34,6 +34,14 @@ unsigned short crc_sum_sim(unsigned char array[SerialArray],int count) // DatenA
 // WS800 Simulation
 int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[SerialArray],int count)
 {
+	int i,j;
+	int offset;
+	int dp;
+	char geraeteinfo[]         = "Sim WSx-UMB";
+	char geraetebeschreibung[] = "Sim Compact Weatherstation WS-800";
+	char messgroesse[]         = "Sim Kanal";
+	char messtyp[]             = "Sim Einheit";
+
     unsigned short result;	// CRC-Berechnung
     unsigned short result1;
     unsigned short result2;
@@ -74,10 +82,147 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 										break;
 
 						case 0x2D:		printf("Sim: Geräteinformation\n");
-										Ecount = 15;
-		                                arrayRX[6] = 0x03;
 										arrayRX[8] = 0x2D;
 										arrayRX[9] = 0x10;
+										if(arrayTX[10]== 0x10) // Geräteinfo - Kurzform
+										{
+											Ecount = 16;
+			                                arrayRX[6] = 0x04;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x10;
+											for(i=0,j=12;i < strlen(geraeteinfo);i++,j++)
+												arrayRX[j] = geraeteinfo[i];
+											Ecount     = Ecount + strlen(geraeteinfo);
+											arrayRX[6] = arrayRX[6] + strlen(geraeteinfo);
+
+										}
+										else if(arrayTX[10]== 0x11) // Gerätebeschreibung - ausgeschrieben
+										{
+											Ecount = 16;
+			                                arrayRX[6] = 0x04;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x11;
+											for(i=0,j=12;i < strlen(geraetebeschreibung);i++,j++)
+												arrayRX[j] = geraetebeschreibung[i];
+											Ecount     = Ecount + strlen(geraetebeschreibung);
+											arrayRX[6] = arrayRX[6] + strlen(geraetebeschreibung);
+
+										}
+										else if(arrayTX[10]== 0x12) // Hardwareversion + Softwareversion
+										{
+											Ecount = 18;
+			                                arrayRX[6] = 0x06;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x12;
+											arrayRX[12]= 10;
+											arrayRX[13]= 11;
+										}
+										else if(arrayTX[10]== 0x13) // Serialnummer - Erweiterte Daten
+										{
+											Ecount = 29;
+			                                arrayRX[6] = 0x11;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x13;
+											arrayRX[12]= 0x00;
+											arrayRX[13]= 0x00;
+											arrayRX[14]= 0x00;
+											arrayRX[15]= 0x00;
+											arrayRX[16]= 0x00;
+											arrayRX[17]= 0x00;
+											arrayRX[18]= 0x00;
+											arrayRX[19]= 0x00;
+											arrayRX[20]= 0x00;
+											arrayRX[21]= 0x00;
+											arrayRX[22]= 0x00;
+											arrayRX[23]= 0x00;
+											arrayRX[24]= 0x00;
+										}
+										else if(arrayTX[10]== 0x14) // EEPROM = 599 Byte
+										{
+											Ecount = 18;
+			                                arrayRX[6] = 0x06;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x14;
+											arrayRX[12]= 0x87;
+											arrayRX[13]= 0x02;
+										}
+										else if(arrayTX[10]== 0x15) // Anzahl Messwerte = 122 auf 2 Blöcke
+										{
+											Ecount = 19;
+			                                arrayRX[6] = 0x07;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x15;
+											arrayRX[12]= 0x7a; // Anzahl Datenpunkte
+											arrayRX[13]= 0x00;
+											arrayRX[14]= 0x02; // Blöcke
+										}
+										else if(arrayTX[10]== 0x16) // Messpunkteliste
+										{
+											Ecount = 18;
+			                                arrayRX[6] = 0x06;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x16;
+											arrayRX[12] = arrayTX[11]; // Blocknummer
+											if(arrayTX[11] == 0) // 1. Block 0-100
+											{
+												arrayRX[13] = 0x64;
+												for(i=0,j=14;i<100;i++,j=j+2)
+												{
+													dp = (i*5)+100;
+													arrayRX[j] = dp % 256;
+													arrayRX[j+1] = dp / 256;
+												}
+												offset = i*2;
+											}
+											else if(arrayTX[11] == 1) // 2. Block 101-122
+											{
+												arrayRX[13] = 0x16;
+												for(i=0,j=14;i<22;i++,j=j+2)
+												{
+													dp = ((i*5)+600);
+													arrayRX[j] = dp % 256;
+													arrayRX[j+1] = dp / 256;
+												}
+												offset = i*2;
+											}
+											Ecount     = Ecount + offset;
+											arrayRX[6] = arrayRX[6] + offset;
+										}
+										else if(arrayTX[10] == 0x30)
+										{
+											Ecount = 63;
+			                                arrayRX[6] = 0x33;
+											arrayRX[10] = 0x00;
+											arrayRX[11] = 0x30;
+											arrayRX[12] = arrayTX[11]; // Kanalnummer
+											arrayRX[13] = arrayTX[12]; // Kanalnummer
+
+											for(i=0,j=14;i < strlen(messgroesse);i++,j++)
+												arrayRX[j] = messgroesse[i];
+											for(;i<20;i++,j++)
+												arrayRX[j] = 0x00;
+
+											for(i=0;i < strlen(messtyp);i++,j++)
+												arrayRX[j] = messtyp[i];
+											for(;i<15;i++,j++)
+												arrayRX[j] = 0x00;
+
+											arrayRX[j++] = 0x10;	// MW_Typ
+											arrayRX[j++] = 0x16; // Datentyp
+
+											arrayRX[j++] = 0x0; // Min
+											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x0;
+
+											arrayRX[j++] = 0x0; // Max
+											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x0;
+
+										}
+										else
+											;
 										break;
 
 						case 0x23:		printf("Sim: Onlinedaten Einzel\n");
