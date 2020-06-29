@@ -15,11 +15,11 @@ int main()
 
     printf("Start\n");
 
+
     union messdatenmix testfall;
-    testfall.g = 100.000;
+    testfall.g = 23.000;
     printf("%x %x %x %x %f\n",testfall.z[0],testfall.z[1],testfall.z[2],testfall.z[3],testfall.g);
-    
-    exit(0);
+
     station.StationAdr    = 0x7001;
     station.PCAddr        = 0xf001;
     station.channels      = NULL;
@@ -29,15 +29,17 @@ int main()
 
     fdserial=SerialPortInit();
 
-//    getVersion(fdserial,&station,&aktdata);
+    getVersion(fdserial,&station,&aktdata);
 //    getDeviceinfo(fdserial,&station,&aktdata);
-    getChanList(fdserial,&station,&aktdata);
+//    getChanList(fdserial,&station,&aktdata);
 
 //    do{
-//    	channels= station.channels;
-//    	getSingleData(fdserial,&station,channels,0);
-//    	getMultiData(fdserial,&station,channels,0);
-
+    	channels= malloc(sizeof(struct kanal));
+    	int chanlist[200]=100;105;110;115;120;125;130;135;0;
+//    	getSingleData(fdserial,&station,channels,&aktdata,100);
+    	getMultiData(fdserial,&station,channels,&aktdata,chanlist);
+    	free (channels);
+    	channels = NULL;
 /*
         printf("Ergebnis: Kanal %d %s ",ptr->nummer,ptr->groesse);
 
@@ -79,9 +81,9 @@ int main()
         printf("\n");
 */
         
-//        doReset(fdserial,&station);	// Software-Reset für den Fehlerfall
-//        getStatus(fdserial,&station);
-//        getError(fdserial,&station);
+//        doReset(fdserial,&station,&aktdata);	// Software-Reset für den Fehlerfall
+//        getStatus(fdserial,&station,&aktdata);
+//        getError(fdserial,&station,&aktdata);
 
 //        sleep(TIMEOUT);
         n++;
@@ -90,14 +92,17 @@ int main()
 
     if(DEBUG > 1)
     {
-        printf("Ausgabe:\n");
-        ptr = station.channels;
+    	if(station.channels != NULL)
+    	{
+    		ptr = station.channels;
+    		printf("Ausgabe:\n");
 
-        for(i=0;i<aktdata.aktcntchannels-1;i++)
-        {
-            printf("Speicher: %03d - %02d - %03d - %03d - %p\n",ptr->lfdnr,ptr->block,ptr->maxnummer,ptr->nummer,ptr);
+    		for(i=0;i<aktdata.aktcntchannels-1;i++)
+    		{
+    			printf("Speicher: %03d - %02d - %03d - %03d - %p\n",ptr->lfdnr,ptr->block,ptr->maxnummer,ptr->nummer,ptr);
                 ptr = ptr->next;
-        }
+    		}
+    	}
     }
     
     close(fdserial);
@@ -107,6 +112,7 @@ int main()
     {
         ptr = channels->next;
         free(channels);
+        channels = NULL;
         channels = ptr->next;
     };
 

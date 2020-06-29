@@ -143,8 +143,8 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 			                                arrayRX[6] = 0x06;
 											arrayRX[10] = 0x00;
 											arrayRX[11] = 0x14;
-											arrayRX[12]= 0x87;
-											arrayRX[13]= 0x02;
+											arrayRX[12] = 0x57;
+											arrayRX[13] = 0x02;
 										}
 										else if(arrayTX[10]== 0x15) // Anzahl Messwerte = 122 auf 2 Blöcke
 										{
@@ -212,13 +212,13 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 
 											arrayRX[j++] = 0x0; // Min
 											arrayRX[j++] = 0x0;
-											arrayRX[j++] = 0x0;
-											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x7a;
+											arrayRX[j++] = 0xc4;
 
 											arrayRX[j++] = 0x0; // Max
 											arrayRX[j++] = 0x0;
-											arrayRX[j++] = 0x0;
-											arrayRX[j++] = 0x0;
+											arrayRX[j++] = 0x7a;
+											arrayRX[j++] = 0x44;
 
 										}
 										else
@@ -226,10 +226,18 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 										break;
 
 						case 0x23:		printf("Sim: Onlinedaten Einzel\n");
-										Ecount = 16;
-		                                arrayRX[6] = 0x04;
+										Ecount = 22;
+		                                arrayRX[6] = 0x0a;
 										arrayRX[8] = 0x23;
 										arrayRX[9] = 0x10;
+										arrayRX[10]= 0x00;
+										arrayRX[11]= arrayTX[10];
+										arrayRX[12]= arrayTX[11];
+										arrayRX[13]= 0x16; // Datentyp
+										arrayRX[14]= 0x00; // Messwert 4*
+										arrayRX[15]= 0x00;
+										arrayRX[16]= 0xb8;
+										arrayRX[17]= 0x41;
 										break;
 
 						case 0x2F:		printf("Sim: Onlinedaten Multi\n");
@@ -244,20 +252,25 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 		                                arrayRX[6] = 0x03;
 										arrayRX[8] = 0x25;
 										arrayRX[9] = 0x10;
+										arrayRX[10]= 0x00;
 										break;
 
 						case 0x26:		printf("Sim: Statusabfrage\n");
-										Ecount = 14;
-		                                arrayRX[6] = 0x02;
+										Ecount = 16;
+		                                arrayRX[6] = 0x04;
 										arrayRX[8] = 0x26;
 										arrayRX[9] = 0x10;
+										arrayRX[10]= 0x00;
+										arrayRX[11]= 0x00; // Statuscode
 										break;
 
 						case 0x2C:		printf("Sim: Fehlerabfrage\n");
-										Ecount = 14;
-		                                arrayRX[6] = 0x02;
+										Ecount = 16;
+		                                arrayRX[6] = 0x04;
 										arrayRX[8] = 0x2C;
 										arrayRX[9] = 0x10;
+										arrayRX[10]= 0x00;
+										arrayRX[11]= 0x00; // Fehlercode
 										break;
 					};
 

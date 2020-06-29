@@ -52,7 +52,6 @@ int getChanList(int fdserial,struct devdaten *station,struct livedata *aktdata)
         request(fdserial,28,station,station->channels,aktdata,ptr->nummer,0); // Kanalinfo
         ptr = ptr->next;
     }
-
     return(result);
 }
 
@@ -62,17 +61,17 @@ int getChanList(int fdserial,struct devdaten *station,struct livedata *aktdata)
 int getSingleData(int fdserial, struct devdaten *station, struct kanal *dp,struct livedata *aktdata, int opt1)
 {
     int result = 0;
-    request(fdserial,3,station,NULL,aktdata,opt1,0); // Datenabfrage ein Kanal
+    request(fdserial,3,station,dp,aktdata,opt1,0); // Datenabfrage ein Kanal
     return(result);
 }
 
 // Abfrage von bis zu 20 Datenpunkten
 // Anzahl der  Datenpunkte Rückgabe > 0
 // Fehler Rückgabe = -1
-int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata, int opt1)
+int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata, int chanlist[])
 {
     int result = 0;
-    request(fdserial,4,station,NULL,aktdata,opt1,0); // Datenabfrage mehrere Kanäle
+    request(fdserial,4,station,dp,aktdata,0,chanlist); // Datenabfrage mehrere Kanäle
     return(result);
 }
 

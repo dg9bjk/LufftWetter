@@ -697,7 +697,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
 }
 
 // Abfrage der Daten 
-int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int j)
+int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int list[])
 {
     int count;
     unsigned char arrayTX[SerialArray];
@@ -706,7 +706,7 @@ int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels
     memset(arrayTX,0,SerialArray);
     memset(arrayRX,0,SerialArray);
     
-    count = encode(arrayTX,cmd,fdserial,station,channels,i,j);
+    count = encode(arrayTX,cmd,fdserial,station,channels,i,list);
     if(count > 0)
     {
         if(DEBUG > 2)
