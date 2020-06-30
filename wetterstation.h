@@ -100,14 +100,14 @@ int recv(int fdserial,unsigned char array[SerialArray]);
 int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[SerialArray],int count);
 
 // lufft.c
-int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int i,int j);
+int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int opt1,int list[]);
 
 // APIlufft.c
 int getVersion(int fdserial,struct devdaten *station,struct livedata *aktdata);
 int getDeviceinfo(int fdserial,struct devdaten *station,struct livedata *aktdata);
 int getChanList(int fdserial,struct devdaten *station,struct livedata *aktdata);
 int getSingleData(int fdserial, struct devdaten *station, struct kanal *dp,struct livedata *aktdata,int opt1);
-int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata,int opt1);
+int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata,int list[]);
 int doReset(int fdserial,struct devdaten *station,struct livedata *aktdata);
 int getStatus(int fdserial,struct devdaten *station,struct livedata *aktdata);
 int getError(int fdserial,struct devdaten *station,struct livedata *aktdata);

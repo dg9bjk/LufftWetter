@@ -15,10 +15,10 @@ int main()
 
     printf("Start\n");
 
-
-    union messdatenmix testfall;
-    testfall.g = 23.000;
-    printf("%x %x %x %x %f\n",testfall.z[0],testfall.z[1],testfall.z[2],testfall.z[3],testfall.g);
+    // Testausgabe für Simulator
+    //union messdatenmix testfall;
+    //testfall.g = 23.000;
+    //printf("%x %x %x %x %f\n",testfall.z[0],testfall.z[1],testfall.z[2],testfall.z[3],testfall.g);
 
     station.StationAdr    = 0x7001;
     station.PCAddr        = 0xf001;
@@ -35,7 +35,9 @@ int main()
 
 //    do{
     	channels= malloc(sizeof(struct kanal));
-    	int chanlist[200]=100;105;110;115;120;125;130;135;0;
+    	channels->next = NULL;
+    	channels->nummer = -1;
+    	int chanlist[20]={100,105,110,115,120,125,130,135,140,145,150,155,160,165,170,175,180,185,190,195};
 //    	getSingleData(fdserial,&station,channels,&aktdata,100);
     	getMultiData(fdserial,&station,channels,&aktdata,chanlist);
     	free (channels);

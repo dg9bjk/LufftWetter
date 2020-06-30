@@ -42,11 +42,12 @@ unsigned short crc_sum(unsigned char array[SerialArray],int count) // DatenArray
 }
 
 // Sende Abfrage Versionsnummer
-int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2)
+int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2[])
 {
     unsigned short result;	// CRC-Berechnung
     int runstop = 0;
     int count;
+    int i,j;
 
     switch(command)
     {
@@ -134,12 +135,23 @@ int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct de
                                 break;
 
         case 4:			// Onlinedaten Mehrfach
-                                count = 16;
-                                arrayTX[6] = 0x04;
+                                count = 15;
+                                arrayTX[6] = 0x03;
                                 arrayTX[8] = 0x2F; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
-                                arrayTX[10] = opt1 & 0x00ff; // Kanal low
-                                arrayTX[11] = (opt1 >> 8) & 0x00ff; // Kanal high
+
+                                for(i=0,j=0;(i < 20);i++)
+                                	if(opt2[i] != 0)
+                                		j++;
+                                arrayTX[10] = j; // Anzahl
+
+                                for(i=0;i<j;i++)
+                                {
+                                	arrayTX[11+(i*2)] = opt2[i] & 0x00ff; // Kanal low
+                                	arrayTX[12+(i*2)] = (opt2[i] >> 8) & 0x00ff; // Kanal high
+                                }
+                                arrayTX[6] = arrayTX[6] + (i*2);
+                                count = count + (i*2);
                                 break;
 
         case 5:			// Reset
@@ -147,7 +159,7 @@ int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct de
                                 arrayTX[6] = 0x03;
                                 arrayTX[8] = 0x25; // Kommando
                                 arrayTX[9] = 0x10; // Parameter
-                                arrayTX[10] = 0x10; // Parameter
+                                arrayTX[10] = 0x10; // Softwarereset
                                 break;
 
         case 6:			// Status
@@ -202,7 +214,7 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
 
 int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,struct kanal *channels,struct livedata *aktdata)
 {
-    int i;
+    int i,j;
     struct kanal *ptr;
     int chnummer;
 
@@ -619,6 +631,146 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                             memset(aktdata->Befehl,0x0,Befehllaenge);
                                             strncpy(aktdata->Befehl,"OnlinedatenM",12);
                                             aktdata->Cmdnr = 4;
+
+                                            for(i=0,j=12;i < arrayRX[11];i++)
+                                            {
+                                            	/*
+                                            	arrayRX[j];   // 12 -länge Substring
+                                            	arrayRX[j+1]; // 13 -Status Substring
+                                            	arrayRX[j+2]; // 14 -Kanal Low
+												arrayRX[j+3]; // 15 -Kanal High
+												arrayRX[j+4]; // 16 -Datentyp
+
+                                            	arrayRX[j+5]; // 17 -Daten bis zu 8*
+                                            	arrayRX[j+6]; // 18
+                                            	arrayRX[j+7]; // 19
+                                            	arrayRX[j+8]; // 20
+                                            	arrayRX[j+9]; // 21
+                                            	arrayRX[j+10]; // 22
+                                            	arrayRX[j+11]; // 23
+                                            	arrayRX[j+12]; // 24
+												*/
+                                            	chnummer = (arrayRX[j+3]*256) + arrayRX[j+2];
+
+                                                if(daten->channels != NULL)
+                                                {
+                                                    ptr = daten->channels;
+                                                    while((ptr->next != NULL) & (chnummer != ptr->nummer))
+                                                        ptr = ptr->next;
+                                                }
+                                                else
+                                                {	// Temporärer Kanal
+                                                    ptr = channels;
+                                                    ptr->datetyp = arrayRX[j+4];
+                                                    ptr->nummer = chnummer;
+                                                    ptr->next = NULL;
+
+                                                    ptr->lfdnr = i+1;
+                                                    ptr->block = 0;
+                                                    ptr->maxnummer = arrayRX[11];
+                                                    memset(ptr->groesse,0x0,21);
+                                                    strncpy(ptr->groesse,"TempValue",9);
+                                                    memset(ptr->einheit,0x0,16);
+                                                    strncpy(ptr->einheit,"TempValue",9);
+                                                    ptr->mwtyp = 0;
+                                                    ptr->Min.a = 0;
+                                                    ptr->Max.a = 0;
+                                                }
+
+                                                if((arrayRX[10] == 0x00) & (arrayRX[j+1] == 0x00) & (chnummer == ptr->nummer))
+                                                {
+                                                    if(arrayRX[j+4] == ptr->datetyp)
+                                                    {
+                                                        if(ptr->datetyp == 0x10 || ptr->datetyp == 0x11)
+                                                        {
+                                                            ptr->lastvalue.z[0] = arrayRX[j+5];
+                                                        }
+                                                        else if(ptr->datetyp == 0x12 || ptr->datetyp == 0x13)
+                                                        {
+                                                            ptr->lastvalue.z[0] = arrayRX[j+5];
+                                                            ptr->lastvalue.z[1] = arrayRX[j+6];
+                                                        }
+                                                        else if(ptr->datetyp == 0x14 || ptr->datetyp == 0x15 || ptr->datetyp == 0x16)
+                                                        {
+                                                            ptr->lastvalue.z[0] = arrayRX[j+5];
+                                                            ptr->lastvalue.z[1] = arrayRX[j+6];
+                                                            ptr->lastvalue.z[2] = arrayRX[j+7];
+                                                            ptr->lastvalue.z[3] = arrayRX[j+8];
+                                                        }
+                                                        else if(ptr->datetyp == 0x17)
+                                                        {
+                                                            ptr->lastvalue.z[0] = arrayRX[j+5];
+                                                            ptr->lastvalue.z[1] = arrayRX[j+6];
+                                                            ptr->lastvalue.z[2] = arrayRX[j+7];
+                                                            ptr->lastvalue.z[3] = arrayRX[j+8];
+                                                            ptr->lastvalue.z[4] = arrayRX[j+9];
+                                                            ptr->lastvalue.z[5] = arrayRX[j+10];
+                                                            ptr->lastvalue.z[6] = arrayRX[j+11];
+                                                            ptr->lastvalue.z[7] = arrayRX[j+12];
+                                                        }
+                                                        else
+                                                        {
+                                                            ptr->lastvalue.z[0] = 0x00;
+                                                            ptr->lastvalue.z[1] = 0x00;
+                                                            ptr->lastvalue.z[2] = 0x00;
+                                                            ptr->lastvalue.z[3] = 0x00;
+                                                            ptr->lastvalue.z[4] = 0x00;
+                                                            ptr->lastvalue.z[5] = 0x00;
+                                                            ptr->lastvalue.z[6] = 0x00;
+                                                            ptr->lastvalue.z[7] = 0x00;
+                                                        }
+                                                    }
+                                                    else
+                                                        printf("Error 112: Falscher Datentyp\n");
+                                                }
+
+                                                if(DEBUG > 1)
+                                                {
+                                                    printf("Debug: %s %d ",aktdata->Befehl,chnummer);
+                                                    if(daten->channels != NULL)
+                                                    {
+                                                        printf("%s ",ptr->groesse);
+                                                        if(ptr->mwtyp == 0x10)
+                                                            printf("%x -> Current - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x11)
+                                                            printf("%x -> Min - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x12)
+                                                            printf("%x -> Max - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x13)
+                                                            printf("%x -> Avg - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x14)
+                                                            printf("%x -> Sum - ",ptr->mwtyp);
+                                                        else if(ptr->mwtyp == 0x15)
+                                                            printf("%x -> Vct - ",ptr->mwtyp);
+                                                        else
+                                                            printf("%x -> Unknown - ",ptr->mwtyp);
+                                                    }
+                                                    if(ptr->datetyp == 0x10)
+                                                        printf("%d",ptr->lastvalue.a);
+                                                    else if(ptr->datetyp == 0x11)
+                                                        printf("%d",ptr->lastvalue.b);
+                                                    else if(ptr->datetyp == 0x12)
+                                                        printf("%d",ptr->lastvalue.c);
+                                                    else if(ptr->datetyp == 0x13)
+                                                        printf("%d",ptr->lastvalue.d);
+                                                    else if(ptr->datetyp == 0x14)
+                                                        printf("%ld",ptr->lastvalue.e);
+                                                    else if(ptr->datetyp == 0x15)
+                                                        printf("%ld",ptr->lastvalue.f);
+                                                    else if(ptr->datetyp == 0x16)
+                                                        printf("%.3f",ptr->lastvalue.g);
+                                                    else if(ptr->datetyp == 0x17)
+                                                        printf("%.3f",ptr->lastvalue.h);
+                                                    else
+                                                        printf("Kein gültiger Wert\n");
+
+                                                    if(daten->channels != NULL)
+                                                        printf(" %s",ptr->einheit);
+                                                            printf("\n");
+                                                }
+
+                                            	j = j+ arrayRX[j];
+                                            }
                                         }
                                         else
                                             printf("Error 111: Falsche Befehlsversion\n");

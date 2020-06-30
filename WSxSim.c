@@ -242,9 +242,25 @@ int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[Se
 
 						case 0x2F:		printf("Sim: Onlinedaten Multi\n");
 										Ecount = 16;
-		                                arrayRX[6] = 0x05;
+		                                arrayRX[6] = 0x04;
 										arrayRX[8] = 0x2F;
 										arrayRX[9] = 0x10;
+										arrayRX[10]= 0x00;
+										arrayRX[11]= arrayTX[10]; // Anzahl Kanäle
+										for(i=0;i<20;i++)
+										{
+											arrayRX[12+(i*9)] = 0x09; // Anzahl Bytes Subchannel
+											arrayRX[13+(i*9)] = 0x00; // Status
+											arrayRX[14+(i*9)] = arrayTX[11+(i*2)]; // Kanalnummer Low
+											arrayRX[15+(i*9)] = arrayTX[12+(i*2)]; // Kanalnummer High
+											arrayRX[16+(i*9)] = 0x16; // Datentyp
+											arrayRX[17+(i*9)] = 0x00; // Wert 4*
+											arrayRX[18+(i*9)] = 0x00;
+											arrayRX[19+(i*9)] = 0xb8;
+											arrayRX[20+(i*9)] = 0x41;
+										}
+										Ecount = Ecount + (i*9);
+										arrayRX[6] = arrayRX[6] + (i*9);
 										break;
 
 						case 0x25:		printf("Sim: Reset\n");
