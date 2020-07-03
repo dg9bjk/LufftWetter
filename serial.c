@@ -1,59 +1,56 @@
 #include "wetterstation.h"
 
 // Initialisierung Serial-Port
-int SerialPortInit()
+int SerialPortInit(char *serialport)
 {
-    int fd;
-    struct termios SerialPortSettings;
+    int fd;			// File-Zeiger
+    struct termios SerialPortSettings;	// Konfigurationsstruktur zum
 
-    if(SIMULATION == 0)
+    if(SIMULATION == 0)	// Nur die reale Struktur verändern, wenn keine Simulation erfolgt.
     {
     	// Seriale-Schnittstelle
-    	fd=open("/dev/ttyUSB0",O_RDWR | O_NOCTTY | O_NDELAY |O_NONBLOCK);
-    	if(fd == -1)
+    	fd=open(serialport,O_RDWR | O_NOCTTY | O_NDELAY |O_NONBLOCK);	// File-Zeiger öffnen
+    	if(fd == -1)													// Fehler bei Öffnen des File-Zeiger
     	{
-    		printf("\n  Error! in Opening Serial-Port\n");
+    		printf(" Error! in Opening Serial-Port\n");
     		return(-1);
     	}
-    	else
+    	else															// File-Zeiger ist vorhanden und ist lesbar
     	{
-    		printf("\n  Serial-Port Opened Successfully\n");
+    		printf(" Serial-Port Opened Successfully\n");
 
-    		// Lesen der Portparameter
-    		tcgetattr(fd, &SerialPortSettings);
+    		tcgetattr(fd, &SerialPortSettings);							// Lesen der Portparameter
 
-    		// Setze Geschwindigkeit Senden/Empfangen 19200Bd
-    		cfsetspeed(&SerialPortSettings,B19200);
-
-    		/* Raw-Mode */
-    		SerialPortSettings.c_cflag &= ~PARENB;                          // No Parity
+    		cfsetspeed(&SerialPortSettings,B19200);						// Setze Geschwindigkeit Senden/Empfangen 19200Bd
+    		// Kommunikationsparameter
+    		SerialPortSettings.c_cflag &= ~PARENB;                          // Kein Paritybit
     		SerialPortSettings.c_cflag &= ~CSTOPB;                          // 1 Stop bit
     		SerialPortSettings.c_cflag |= CS8;                              // data bits = 8
-    		SerialPortSettings.c_cflag &= ~CRTSCTS;                         // No Hardware flow Control
-    		SerialPortSettings.c_cflag |= CREAD | CLOCAL;                   // Enable receiver,Ignore Modem Control lines
-    		SerialPortSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);  // Non Cannonical mode / ECHO / Interpret Siganls
-    		SerialPortSettings.c_iflag &= ~(IXON | IXOFF | IXANY);          // Disable XON/XOFF flow control
-    		SerialPortSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Ignore Spezial-Charaters
-    		SerialPortSettings.c_oflag &= ~(OPOST | ONLCR);                 // No Output Processing
-    		SerialPortSettings.c_cc[VMIN] = 0;
-    		SerialPortSettings.c_cc[VTIME] = 10;
+    		SerialPortSettings.c_cflag &= ~CRTSCTS;                         // Keine RTS/CTS DTR/DSR
+    		SerialPortSettings.c_cflag |= CREAD | CLOCAL;                   // Aktiviere Empfänger,Ignoriere DCD / RI Eingänge
+    		SerialPortSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);  // Kein Zeilenmode / ECHO aus/ Keine Unterbrechungsignale auswerten
+    		SerialPortSettings.c_iflag &= ~(IXON | IXOFF | IXANY);          // Kein XON/XOFF-Control
+    		SerialPortSettings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Ignoriere Spezial-Zeichen
+    		SerialPortSettings.c_oflag &= ~(OPOST | ONLCR);                 // Keine manipulation des Ausganges
+    		SerialPortSettings.c_cc[VMIN] = 0;								// Kein warten auf minimale Zeichenzahl
+    		SerialPortSettings.c_cc[VTIME] = 10;							// Wartezeit n * 100ms;
 
-    		// Schreiben der Parameter
-    		if((tcsetattr(fd,TCSANOW,&SerialPortSettings)) != 0)
+    		if((tcsetattr(fd,TCSANOW,&SerialPortSettings)) != 0)		// Schreiben der Parameter
     		{
-    			printf("\n  ERROR ! Serial-Parameter\n\n");
-    			close(fd); // Zeiger zurückgeben
+    			printf(" ERROR ! Serial-Parameter\n");					// Fehler beim Schreiben der Parameter
+    			close(fd); 												// Zeiger auflösen
+    			fd = -1;
     			return(-1);
     		}
     		else
     		{
-    			printf("\n  19200 Bd - 8n1\n\n");
-    			tcflush(fd, TCIFLUSH);  // Löschen von Müll im Speicher
+    			printf(" 19200 Bd - 8n1\n");
+    			tcflush(fd, TCIFLUSH);									// Löschen von Müll im Speicher
     		}
     	}
     }
     else
-    	fd=-2207;
+    	fd=-2207;														// File-Zeiger-ID im Simulationsmode
     return(fd);
 }
 

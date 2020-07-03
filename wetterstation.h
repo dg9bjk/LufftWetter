@@ -24,91 +24,111 @@
 #define SerialArray 260     // Zeichenpuffer der Serial-Schnittstelle (max. 256 Byte möglich + 4 Reserve
 
 // Datenstrukturen
-union messdatenmix
+union messdatenmix								// Zum Einlesen der Daten
 {
-    unsigned char a;
-    signed char b;
-    unsigned short c;
-    signed short d;
-    unsigned long e;
-    signed long f;
-    float g;
-    double h;
-    unsigned char z[8];
+    unsigned char  a;							// Benutzt [0]
+    signed char    b;							// Benutzt [0]
+    unsigned short c;							// Benutzt [0][1]
+    signed short   d;							// Benutzt [0][1]
+    unsigned long  e;							// Benutzt [0][1][2][3]
+    signed long    f;							// Benutzt [0][1][2][3]
+    float          g;							// Benutzt [0][1][2][3]
+    double         h;							// Benutzt [0][1][2][3][4][5][6][7]
+    unsigned char z[8];							// Eingabe aus dem Datenarray der Wetterstation
 };
 
-struct ExtInfo
+struct livedata									// Aktuelle Livedaten
 {
-    int lfddevnr;
-    int proddate;
-    int project;
-    int stueli;
-    int splan;
-    int hardware;
-    int software;
-    int e2version;
-    int deviceversion;
+    int aktcntchannels;							// Aktuell Eingelesene Datenpunktemenge
+    int lastStatus;								// Letzter Statuscode
+    int lastError;								// Letzter Fehlercode
+    int Statuscode;
+    int Cmdnr;									// Kommandonummer (Interne Verarbeiterung)
+    char Befehl[Befehllaenge];					// Befehlname (Interne Verarbeiterung)
+    char Fehlermeldung[Befehllaenge];			// Fehlermeldung (Interne Verarbeiterung)
 };
 
-struct kanal
+struct kanal									// Kanalinformation eines Messkanales
 {
-    int lfdnr;
-    int block;
-    int maxnummer;
-    int nummer;
-    char groesse[21];
-    char einheit[16];
-    int mwtyp;
-    int datetyp;
-    union messdatenmix Min;
-    union messdatenmix Max;
-    union messdatenmix lastvalue;
-    struct kanal *next;
+    int lfdnr;									// Laufende Nummer
+    int block;									// Blocknummer
+    int maxnummer;								// Maximale Kanäle
+    int nummer;									// Kanalnummer
+    int timestamp;								// Zeitstempel letzte Abfrage
+    int zyklusSek;								// Abfrage-Zyklus
+    char groesse[21];							// Name des Kaneles  - Ausgelesen aus der Station
+    char einheit[16];							// Einheit  - Ausgelesen aus der Station
+    int mwtyp;									// Messwert-Typ
+    int datetyp;								// Datentyp
+    union messdatenmix Min;						// Minimumwert (Siehe Datentyp)
+    union messdatenmix Max;						// Maximumwert (Siehe Datentyp)
+    union messdatenmix value;					// Aktueller Messwert (Siehe Datentyp)
+    struct kanal *next;							// Nächster Kanal -> Kette
 };
 
-struct livedata
+struct ExtInfo									// Zusätzliche Stationsdaten
 {
-    int aktcntchannels;
-    int lastStatus;
-    int lastError;
-    int Cmdnr;
-    char Befehl[Befehllaenge];
-    char Fehlermeldung[Befehllaenge];
+    int lfddevnr;								// Produktionsnummer
+    int proddate;								// Produktzeitpunkt (MMJJ)
+    int project;								// Projektnummer
+    int stueli;									// Stückliste
+    int splan;									// Schaltplan
+    int hardware;								// Hardware-Revision
+    int software;								// Software-Revision (Auslieferung)
+    int e2version;								// ???
+    int deviceversion;							// Device-Revision
 };
 
-struct devdaten
+struct devdaten									// Stationsdaten (Allgemein)
 {
-    int StationAdr;
-    int PCAddr;
-    int aktHardware;
-    int aktSoftware;
-    int EEPROMSize;
-    int AnzahlKanaele;
-    int AnzahlBloecke;
-    char Geraetebezeichnung[Befehllaenge];
-    char Geraetebeschreibung[Befehllaenge];
-    char serialnummer[Befehllaenge];
-    struct ExtInfo Devinfo;
-    struct kanal *channels;
+	int lfdnr;									// Laufende Nummer
+    int StationAdr;								// Stationsaddresse
+    int PCAdr;									// Temporär -> Lokale PC-Addresse
+    int aktHardware;							// Aktuelle Hardware-Addresse
+    int aktSoftware;							// Aktuelle Software-Addresse
+    int EEPROMSize;								// Grösse EEPROM
+    int AnzahlKanaele;							// Anzahl der Kanäle gesammt
+    int AnzahlBloecke;							// Anzahl der Blöcke (100er Kanalraster)
+    int fdserial;								// File-Zeiger für Zugriff auf Seriale Kommunikation
+	char *serialport;							// Name des Serialports
+    char Geraetebezeichnung[Befehllaenge];		// Gerätebezeichnung - Ausgelesen aus der Station
+    char Geraetebeschreibung[Befehllaenge];		// Gerätebeschreibung  - Ausgelesen aus der Station
+    char serialnummer[Befehllaenge];			// Serialnummer  - Ausgelesen aus der Station über ExtInfo
+    struct ExtInfo Devinfo;						// Produktionsdaten  - Ausgelesen aus der Station
+    struct livedata live;						// Aktuelle Live-Daten auf der Serialschnittstelle aus der Station
+    struct kanal *channels;						// Kanalliste der verfügbaren Messkanäle
+    struct devdaten *next;						// Nächste Station -> Kette
+};
+
+struct master									// Globale Struktur für die Programmkonfiguration / Laufvariablen
+{
+	int PCAdr;									// Lokale PC-Adresse (Lufft-Protokoll)
+	char *konfigpath;							// Lage der Konfigurationsdatei
+	struct devdaten *station;					// Liste der Wetterstationen
 };
 
 // Muster der Funktionen für den Aufruf (public)
 // serial.c
-int SerialPortInit();
+int SerialPortInit(char *serialport);
 int send(int fdserial,unsigned char array[SerialArray],int count);
 int recv(int fdserial,unsigned char array[SerialArray]);
 int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[SerialArray],int count);
 
+//file.c
+int readKonfig(char *konfig,struct master *globalkonfig);
+
 // lufft.c
-int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata *aktdata,int opt1,int list[]);
+int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata aktdata,int opt1,int list[]);
+void printMWtyp(int mwtyp);
+void printValueByDatatyp(int datatyp,union messdatenmix value);
 
 // APIlufft.c
-int getVersion(int fdserial,struct devdaten *station,struct livedata *aktdata);
-int getDeviceinfo(int fdserial,struct devdaten *station,struct livedata *aktdata);
-int getChanList(int fdserial,struct devdaten *station,struct livedata *aktdata);
-int getSingleData(int fdserial, struct devdaten *station, struct kanal *dp,struct livedata *aktdata,int opt1);
-int getMultiData(int fdserial,struct devdaten *station,struct kanal *dp,struct livedata *aktdata,int list[]);
-int doReset(int fdserial,struct devdaten *station,struct livedata *aktdata);
-int getStatus(int fdserial,struct devdaten *station,struct livedata *aktdata);
-int getError(int fdserial,struct devdaten *station,struct livedata *aktdata);
-
+int getStationList(struct master *globalkonfig,int typ,int start,int stop);
+int getVersion(struct devdaten *station);
+int getDeviceinfo(struct devdaten *station);
+int getChanList(struct devdaten *station);
+int getSingleData(struct devdaten *station, struct kanal *dp, int kanalnr);
+int getMultiData(struct devdaten *station, struct kanal *dp, int chanlist[]);
+int doReset(struct devdaten *station);
+int getStatus(struct devdaten *station);
+int getError(struct devdaten *station);
