@@ -54,6 +54,72 @@ int SerialPortInit(char *serialport)
     return(fd);
 }
 
+//Suche nach den serialen Schnittstellen mit Wetterstation
+int searchport(struct master *globalkonfig)
+{
+	int i;
+	int result = 0;
+    struct serport *serptr;			// Liste der Serialen Schnittstellen
+    struct serport *testserport;
+    int fdserial = 0;
+
+
+		static char serialport[10][14] = {
+	    		{"/dev/ttyS0"},
+				{"/dev/ttyS1"},
+				{"/dev/ttyS2"},
+				{"/dev/ttyS3"},
+				{"/dev/ttyUSB0"},
+				{"/dev/ttyUSB1"},
+				{"/dev/ttyUSB2"},
+				{"/dev/ttyUSB3"},
+				{"/dev/ttyACM0"},
+				{"/dev/ttyAMA0"}
+				};
+
+	    // Vorschläge der Serialen Schnittstellen
+	    serptr = malloc(sizeof(struct serport));
+	    serptr->next = NULL;
+	    globalkonfig->serial = NULL;
+
+	    for(i=0;i < 10;i++)
+	    {
+	    	if((fdserial = SerialPortInit((char*)&serialport[i])) > 0)
+	    	{
+				serptr->fdserial   = fdserial;
+				serptr->serialport = (char*)&serialport[i];
+	    		if((getStationList(globalkonfig,*serptr,7,1,255)) > 0)
+	    		{
+					if(globalkonfig->serial == NULL)
+					{
+						globalkonfig->serial = serptr;
+						serptr = malloc(sizeof(struct serport));
+						serptr->next = NULL;
+					}
+					else
+					{
+						testserport=globalkonfig->serial;
+						while(testserport != NULL)
+						{
+							if(testserport->next == NULL)
+							{
+								testserport->next = serptr;
+								serptr = malloc(sizeof(struct serport));
+								serptr->next = NULL;
+							}
+							else
+								testserport = testserport->next;
+						}
+					}
+	    		}
+	    		else
+	    			close(fdserial);
+	    	}
+	    }
+	    free(serptr);
+	    return(result);
+}
+
 // Schreibe Commando
 int send(int fdserial,unsigned char array[SerialArray],int count)
 {

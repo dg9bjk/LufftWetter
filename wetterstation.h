@@ -100,33 +100,43 @@ struct devdaten									// Stationsdaten (Allgemein)
     struct devdaten *next;						// Nächste Station -> Kette
 };
 
+struct serport
+{
+    int fdserial;								// File-Zeiger für Zugriff auf Seriale Kommunikation
+	char *serialport;							// Name des Serialports
+	struct serport *next;						// Nächster Serial-Port
+};
 struct master									// Globale Struktur für die Programmkonfiguration / Laufvariablen
 {
 	int PCAdr;									// Lokale PC-Adresse (Lufft-Protokoll)
 	char *konfigpath;							// Lage der Konfigurationsdatei
+	struct serport *serial;						// Liste der verfügbaren Serialports
 	struct devdaten *station;					// Liste der Wetterstationen
 };
 
 // Muster der Funktionen für den Aufruf (public)
 // serial.c
 int SerialPortInit(char *serialport);
+int searchport(struct master *globalkonfig);
 int send(int fdserial,unsigned char array[SerialArray],int count);
 int recv(int fdserial,unsigned char array[SerialArray]);
 int sim(int fdserial,unsigned char arrayTX[SerialArray],unsigned char arrayRX[SerialArray],int count);
 
 //file.c
 int readKonfig(char *konfig,struct master *globalkonfig);
+int searchkonfig(struct master *globalkonfig);
 
 // lufft.c
-int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata aktdata,int opt1,int list[]);
+int request(int cmd,struct devdaten *station,struct kanal *channels,int opt1,int list[]);
 void printMWtyp(int mwtyp);
 void printValueByDatatyp(int datatyp,union messdatenmix value);
 
 // APIlufft.c
-int getStationList(struct master *globalkonfig,int typ,int start,int stop);
+int getStationList(struct master *globalkonfig,struct serport serial,int typ,int start,int stop);
 int getVersion(struct devdaten *station);
 int getDeviceinfo(struct devdaten *station);
 int getChanList(struct devdaten *station);
+int getChanInfo(struct devdaten *station,int chan);
 int getSingleData(struct devdaten *station, struct kanal *dp, int kanalnr);
 int getMultiData(struct devdaten *station, struct kanal *dp, int chanlist[]);
 int doReset(struct devdaten *station);

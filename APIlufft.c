@@ -7,47 +7,90 @@
 // zu verlieren.
 
 // Scan des Netzwerkes nach Wetterstation
-int getStationList(struct master *globalkonfig,int typ,int start,int stop)
+int getStationList(struct master *globalkonfig,struct serport serial,int typ,int start,int stop)
 {
-	int count = 0;
-	int i,j;
-	int addr;
+	int count = 0;										// Zähler der gefundenen Stationen
+	int i;												// Temporäre Laufvariablen
+	int addr;											// Temporäre Addresse
+	struct devdaten *ptr;								// Neuer Zeiger auf zu suchende Station
+	struct devdaten *testptr;							// Testzeiger auf bestehende Stationsliste
 
-	if(start < 1)
+	if(start < 1)										// Begrenzung der Suchvariablen nach Lufft-Konvention
 			start = 1;
 	if(stop > 255)
 		stop = 255;
-	if (typ < 1)
+	if (typ < 1)										// Begrenzung Typ nach Lufft-Konvention
 		typ = 1;
 	if (typ > 10)
 		typ = 10;
 
-	if(globalkonfig->station != NULL)
+	ptr = malloc(sizeof(struct devdaten));				// Aufverdacht eine Struktur zum Suchen - wird am Ende wieder gelöscht
+	ptr->next = NULL;
+
+	count = 1;											// Zähler für die Suche
+	for(i = start;i <= stop;i++)									// Suche der Reihe nach alle Addressen durch
 	{
-		for(i = start,j=0;i <= stop;i++)
-		{
-		    addr = (typ & 0x000F) << 12;
-		    addr += (i & 0x00FF);
-		    globalkonfig->station->StationAdr = addr;
-		    globalkonfig->station->aktHardware = 0;
-		    globalkonfig->station->aktSoftware = 0;
-	    	request(globalkonfig->station->fdserial,1,globalkonfig->station,NULL,globalkonfig->station->live,0,0);
-		    if((globalkonfig->station->aktHardware != 0) | (globalkonfig->station->aktSoftware != 0))
-		    {
-		        request(globalkonfig->station->fdserial,21,globalkonfig->station,NULL,globalkonfig->station->live,0,0); // Gerätebezeichnung
-		        request(globalkonfig->station->fdserial,22,globalkonfig->station,NULL,globalkonfig->station->live,0,0); // Gerätebeschreibung
-		        j++;
-		        globalkonfig->station->next = malloc(sizeof(struct devdaten));
-		        globalkonfig->station = globalkonfig->station->next;
-		    }
-		}
-	count = j;
+	    addr = (typ & 0x000F) << 12;								// Adresse codieren -> Lufft-Konvention
+	    addr += (i & 0x00FF);
+	    ptr->StationAdr    = addr;									// Adressen in die temporäre Struktur schreiben
+	    ptr->PCAdr         = globalkonfig->PCAdr;
+	    ptr->aktHardware   = 0;										// Null-Initialisierung
+	    ptr->aktSoftware   = 0;
+		ptr->AnzahlBloecke = 0;
+		ptr->AnzahlKanaele = 0;
+		ptr->EEPROMSize    = 0;
+		ptr->fdserial	   = serial.fdserial;
+		ptr->serialport    = serial.serialport;
+		memset(ptr->Geraetebeschreibung,0x0,Befehllaenge);
+		memset(ptr->Geraetebezeichnung,0x0,Befehllaenge);
+
+		getVersion(ptr);											// Teste ins Unbekannte, ob eine Version gemeldet wird
+	    if((ptr->aktHardware != 0) | (ptr->aktSoftware != 0))		// Eine Station antwortet
+	    {
+
+	        if(globalkonfig->station != NULL)
+	        {
+				testptr = globalkonfig->station;
+	        	while(testptr != NULL)								// Solange suchen, bis Ende der Kette erreicht ist
+				{
+	        		if(testptr->StationAdr != addr)					// Wenn gleiche NICHT Addresse gefunden wurde
+	        		{
+	        			if(testptr->next == NULL)					// Am Ende der Kette keine gefundene identische Adresse
+	        			{
+	        		    	getDeviceinfo(ptr);						// Lade Zusatzinformatinen
+	        		    	getChanList(ptr);
+	        	        	ptr->lfdnr = count;							// Laufende nummer schreiben
+	        	        	count++;									// lfdnr erhöhen
+	        	        	testptr->next = ptr;					// Hänge neue Station an die Kette an
+	        	        	ptr = malloc(sizeof(struct devdaten));	// erzeuge neue (leere) Struktur
+	        	        	ptr->next = NULL;
+	        	        	testptr = NULL;
+	        			}
+	        			else
+	        				testptr = testptr->next;					// Lade nächste Station
+	        		}
+	        		else
+	        			break;										// Addresse schon in der Kette
+				}
+	        }
+	        else                         // "globalkonfig->station == NULL", Wenn noch keine Station definiert wurde,
+	        {														// Hänge diese als erste an
+	        	ptr->lfdnr = count;
+	        	globalkonfig->station = ptr;
+	        	count++;
+	        	ptr = malloc(sizeof(struct devdaten));
+	        	ptr->next = NULL;
+	        }
+	    }
 	}
-	else
+	free(ptr);							// Offener Zeiger auf Struktur löschen, da keine Station mehr erfragt wird
+
+	if(globalkonfig->station == NULL)
 	{
-		printf("Keine Stationen definiert\n");
+		printf("Keine Stationen gefunden\n");
 		count = -1;
 	}
+
 	return(count);
 }
 
@@ -56,8 +99,10 @@ int getStationList(struct master *globalkonfig,int typ,int start,int stop)
 // Fehler Rückgabe = -1
 int getVersion(struct devdaten *station)
 {
-    int result = 1;
-    request(station->fdserial,1,station,NULL,station->live,0,0);    // Versionsabfrage
+    int result = 0;
+
+    result=request(1,station,NULL,0,0);    // Versionsabfrage
+
     return(result);
 }
 
@@ -66,15 +111,19 @@ int getVersion(struct devdaten *station)
 // Fehler Rückgabe = -1
 int getDeviceinfo(struct devdaten *station)
 {
-    int result = 0;
+    int result1 = 0;
+    int result2 = 0;
+    int result3 = 0;
+    int result4 = 0;
+    int result5 = 0;
 
-    request(station->fdserial,21,station,NULL,station->live,0,0); // Gerätebezeichnung
-    request(station->fdserial,22,station,NULL,station->live,0,0); // Gerätebeschreibung
-    request(station->fdserial,23,station,NULL,station->live,0,0); // Hard- und Softwareversion
-    request(station->fdserial,24,station,NULL,station->live,0,0); // erweiterte Info
-    request(station->fdserial,25,station,NULL,station->live,0,0); // Groesse EEPROM
+    result1=request(21,station,NULL,0,0); // Gerätebezeichnung
+    result2=request(22,station,NULL,0,0); // Gerätebeschreibung
+    result3=request(23,station,NULL,0,0); // Hard- und Softwareversion
+    result4=request(24,station,NULL,0,0); // erweiterte Info
+    result5=request(25,station,NULL,0,0); // Groesse EEPROM
 
-    return(result);
+    return(result1 & result2 & result3 & result4 & result5);
 }
 
 // Abfrage der Kanalkonfiguration (Scan kann mehrere Minuten dauern)
@@ -82,21 +131,37 @@ int getDeviceinfo(struct devdaten *station)
 // Fehler Rückgabe = -1
 int getChanList(struct devdaten *station)
 {
-    int result = 0;
+    int result1 = 0;
+    int result2 = 0;
+    int result3 = 0;
     int i;
     struct kanal *ptr;
 
-    request(station->fdserial,26,station,NULL,station->live,0,0); // Anzahl der Kanaele
+    result1 = request(26,station,NULL,0,0); // Anzahl der Kanaele und Blöcke
 
-    for(i=0;i < station->AnzahlBloecke;i++)
-        request(station->fdserial,27,station,NULL,station->live,i,0); // Nummern der Kanaele
+
+    if(result1)
+    	for(i=0;i < station->AnzahlBloecke;i++)
+    		result2 = request(27,station,NULL,i,0); // Nummern der Kanaele
 
     ptr = station->channels;
-    for(i=0;i < station->AnzahlKanaele;i++)
-    {
-        request(station->fdserial,28,station,station->channels,station->live,ptr->nummer,0); // Kanalinfo
-        ptr = ptr->next;
-    }
+    if(result2)
+    	for(i=0;i < station->AnzahlKanaele;i++)
+    	{
+    		result3 = request(28,station,station->channels,ptr->nummer,0); // Kanalinfo
+    		ptr = ptr->next;
+    	}
+
+    return(result1 & result2 & result3);
+}
+
+// Abfrage der Messkanalinformation
+int getChanInfo(struct devdaten *station,int chan)
+{
+    int result = 0;
+
+    result = request(28,station,station->channels,chan,0); // Kanalinfo
+
     return(result);
 }
 
@@ -106,7 +171,9 @@ int getChanList(struct devdaten *station)
 int getSingleData(struct devdaten *station, struct kanal *dp, int kanalnr)
 {
     int result = 0;
-    request(station->fdserial,3,station,dp,station->live,kanalnr,0); // Datenabfrage ein Kanal
+
+    result = request(3,station,dp,kanalnr,0); // Datenabfrage ein Kanal
+
     return(result);
 }
 
@@ -116,7 +183,9 @@ int getSingleData(struct devdaten *station, struct kanal *dp, int kanalnr)
 int getMultiData(struct devdaten *station, struct kanal *dp, int chanlist[])
 {
     int result = 0;
-    request(station->fdserial,4,station,dp,station->live,0,chanlist); // Datenabfrage mehrere Kanäle
+
+    result = request(4,station,dp,0,chanlist); // Datenabfrage mehrere Kanäle
+
     return(result);
 }
 
@@ -127,8 +196,10 @@ int getMultiData(struct devdaten *station, struct kanal *dp, int chanlist[])
 int doReset(struct devdaten *station)
 {
     int result = 0;
-    request(station->fdserial,5,station,NULL,station->live,0,0);    // Reset
+
+    result = request(5,station,NULL,0,0);    // Reset
     sleep(2);
+
     return(result);
 }
 
@@ -139,7 +210,9 @@ int doReset(struct devdaten *station)
 int getStatus(struct devdaten *station)
 {
     int result = 0;
-    request(station->fdserial,6,station,NULL,station->live,0,0);    // Statusabfrage
+
+    result = request(6,station,NULL,0,0);    // Statusabfrage
+
     return(result);
 }
 
@@ -150,6 +223,8 @@ int getStatus(struct devdaten *station)
 int getError(struct devdaten *station)
 {
     int result = 0;
-    request(station->fdserial,7,station,NULL,station->live,0,0);    // Fehlerabfrage
+
+    result = request(7,station,NULL,0,0);    // Fehlerabfrage
+
     return(result);
 }

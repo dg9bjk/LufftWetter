@@ -167,9 +167,9 @@ unsigned short crc_sum(unsigned char array[SerialArray],int count) // DatenArray
 }
 
 // Sende Abfrage Versionsnummer
-int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct devdaten *daten,struct kanal *channels,int opt1,int opt2[])
+int encode(unsigned char arrayTX[SerialArray],int command,struct devdaten *daten,struct kanal *channels,int opt1,int opt2[])
 {
-    unsigned short result;	// CRC-Berechnung
+    unsigned short crcresult;	// CRC-Berechnung
     int runstop = 0;
     int count;
     int i,j;
@@ -319,9 +319,9 @@ int encode(unsigned char arrayTX[SerialArray],int command,int fdserial,struct de
         arrayTX[11 + arrayTX[6]]= 0x04; // EOT - fix
 
         // CRC-Summe
-        result = crc_sum(arrayTX,count);
-        arrayTX[9 + arrayTX[6]]= result & 0x00FF;
-        arrayTX[10 + arrayTX[6]]= ((result = result >> 8) & 0x00FF);
+        crcresult = crc_sum(arrayTX,count);
+        arrayTX[9 + arrayTX[6]]= crcresult & 0x00FF;
+        arrayTX[10 + arrayTX[6]]= ((crcresult = crcresult >> 8) & 0x00FF);
     }
     
     return(count);
@@ -906,7 +906,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
 }
 
 // Abfrage der Daten 
-int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels,struct livedata aktdata,int i,int list[])
+int request(int cmd,struct devdaten *station,struct kanal *channels,int i,int list[])
 {
     int count;
     unsigned char arrayTX[SerialArray];
@@ -915,7 +915,7 @@ int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels
     memset(arrayTX,0,SerialArray);
     memset(arrayRX,0,SerialArray);
     
-    count = encode(arrayTX,cmd,fdserial,station,channels,i,list);
+    count = encode(arrayTX,cmd,station,channels,i,list);
     if(count > 0)
     {
         if(DEBUG > 2)
@@ -923,19 +923,19 @@ int request(int fdserial,int cmd,struct devdaten *station,struct kanal *channels
 
         if(SIMULATION > 0)
         {
-        	count=sim(fdserial,arrayTX,arrayRX,count);
+        	count=sim(station->fdserial,arrayTX,arrayRX,count);
         	sleep(1);
         }
         else
         {
-        	send(fdserial,arrayTX,count);
+        	send(station->fdserial,arrayTX,count);
         sleep(1);
-        	count = recv(fdserial,arrayRX);
+        	count = recv(station->fdserial,arrayRX);
         }
         if(DEBUG > 2)
             debugserial(arrayRX,count);
 
-        decode(arrayRX,count,station,channels,&aktdata);
+        decode(arrayRX,count,station,channels,&station->live);
     }
     usleep(100000);
     return(0);

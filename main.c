@@ -13,27 +13,6 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     struct kanal *ptr;				// Kanalliste für temporäre Abfrage (Schleifen)
     ptr                   = NULL;
 
-    // Vorschläge der Konfigurationspfade - werden der Reihe nach durchprobiert. Der erste Treffer wird benutzt.
-    char konfigpath[9][30] = {
-    		{"./wetter.conf"},
-			{"~/wetter.conf"},
-			{"~/lufft/wetter.conf"},
-			{"/etc/wetter.conf"},
-			{"/etc/lufft/wetter.conf"},
-			{"/usr/lufft/wetter.conf"},
-			{"/var/lufft/wetter.conf"},
-			{"/usr/share/lufft/wetter.conf"},
-			{"/var/share/lufft/wetter.conf"}
-			};
-
-    globalkonfig.konfigpath    = NULL;						// Initialisierung auf NULL
-    for(i=0;i < 9;i++)										// Suche das konfigpath-Array durch
-    	if(readKonfig(konfigpath[i],&globalkonfig) > 0)		// Wenn eine gültige Dateigefunden wird
-    	{
-    		globalkonfig.konfigpath    = (char*)&konfigpath[i];	// Wird diese gespeichert
-    		break;												// Der Suchlauf sofort bendet.
-    	}
-
     if(DEBUG > 1)
     {
     	printf("Cmd          : %d \n",cmdcnt);
@@ -43,10 +22,8 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     		printf("env          : %s \n",env[i]);
     }
 
-    // Vorschläge der Serialen Schnittstellen
-    char serialport[255];	// Freies Feld für freie Konfiguration
-    memset(serialport,0x0,255);
-    strncpy(serialport,"/dev/ttyUSB0",12);
+    searchkonfig(&globalkonfig);							// Suchen und Laden der Konfigdatei
+    seachport(&globalkonfig);								// Suchen und Laden der serielen Schnittstellen
 
     printf("\nStart\n");
 
@@ -55,20 +32,20 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     //testfall.g = 23.000;
     //printf("%x %x %x %x %f\n",testfall.z[0],testfall.z[1],testfall.z[2],testfall.z[3],testfall.g);
 
-    globalkonfig.PCAdr		  = 0xF001;				// lokale PC-Adresse
-    globalkonfig.konfigpath    = konfigpath [0];	// Link auf den Konfig-File-Pfad
+    if(globalkonfig.konfigpath == NULL)
+    {
+		globalkonfig.PCAdr		  = 0xF001;				// lokale PC-Adresse
 
-    globalkonfig.station = malloc(sizeof(struct devdaten));
-    globalkonfig.station->serialport  	= (char*)&serialport; // link auf die default Seriale Schnittstelle
-    globalkonfig.station->StationAdr    = 0x7001;			// erste Stationsadresse (Initialisierung)
-    globalkonfig.station->channels      = NULL;				// Leere Liste der Kanäle (Initialisierung)
-    globalkonfig.station->EEPROMSize    = -1;				// Unbekanntes EEPROM (Initialisierung)
-    globalkonfig.station->AnzahlKanaele = -1;				// Anzahl der Kanäle unbekannt (Initialisierung)
-    globalkonfig.station->AnzahlBloecke = -1;				// Anzahl der Blöcke (Kanallisten % 100) - (Initialisierung)
+		globalkonfig.station = malloc(sizeof(struct devdaten));
+		globalkonfig.station->serialport  	= globalkonfig.serial->serialport; // link auf die default Seriale Schnittstelle
+		globalkonfig.station->StationAdr    = 0x7001;			// erste Stationsadresse (Initialisierung)
+		globalkonfig.station->channels      = NULL;				// Leere Liste der Kanäle (Initialisierung)
+		globalkonfig.station->EEPROMSize    = -1;				// Unbekanntes EEPROM (Initialisierung)
+		globalkonfig.station->AnzahlKanaele = -1;				// Anzahl der Kanäle unbekannt (Initialisierung)
+		globalkonfig.station->AnzahlBloecke = -1;				// Anzahl der Blöcke (Kanallisten % 100) - (Initialisierung)
+    }
 
-    globalkonfig.station->fdserial = SerialPortInit(globalkonfig.station->serialport);	// Öffnen der serialen Schnittstelle
-    												// Der File-Zeiger fdserial wird für die gesammte Kommunikation benötigt.
-    getStationList(&globalkonfig,7,1,3);	// Suchen nach den Stationsaddressen (Beispiel: Nur Typ 7 - von 1 bis 3)
+    getStationList(&globalkonfig,*globalkonfig.serial,7,1,3);	// Suchen nach den Stationsaddressen (Beispiel: Nur Typ 7 - von 1 bis 3)
 
     getDeviceinfo(globalkonfig.station);	// Laden der Stationsdaten (Globale Stationsdaten)
     getChanList(globalkonfig.station);	// Laden der Kanaldaten (Kanallisten)
@@ -121,9 +98,14 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     	}
     }
     
-    close(globalkonfig.station->fdserial);		// Schliessen des File-Zeigers der serialen Schnittstelle
-    globalkonfig.station->fdserial = -1;			// Variable als Ungültig markieren
-    
+    while(globalkonfig.serial != NULL)
+    {
+    	close(globalkonfig.serial->fdserial);		// Schliessen des File-Zeigers der serialen Schnittstelle
+    	globalkonfig.serial->fdserial = -1;			// Variable als Ungültig markieren
+    	//globalkonfig.serial->serialport = NULL;
+    	globalkonfig.serial = globalkonfig.serial->next;
+    }
+
     // Speicher freigeben    
     while(channels != NULL)
     {
