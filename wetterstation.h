@@ -7,6 +7,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // Globale Definitionen
 #define DEBUG 3				// Ausgabe von Zusatzinformationen
@@ -15,7 +17,7 @@
 							// 2 = Nur Programminformationen
 							// 3 = Mit Protokoll der Serial-Daten
 
-#define SIMULATION	1		// 0 = Aus
+#define SIMULATION	0		// 0 = Aus
 							// 1 = Simulation korrekte Daten
 							// 2 = Simulation Fehler
 

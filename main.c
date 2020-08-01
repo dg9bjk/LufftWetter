@@ -7,11 +7,20 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
 	int errorcnt = 0;				// Fehlerzähler
     int i;							// Temporäre Schleifenzähler
     int abbruch = 0;				// Abbruchbedingung für Dauerschleife 0 = Dauerlauf, sonst Ende
-    struct master globalkonfig;			// Lokale Globale PC-Daten
+    int chanlist1[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    int chanlist2[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    struct master globalkonfig;		// Lokale Globale PC-Daten
     struct kanal *channels;			// Kanalliste für temporäre Abfrage
     channels              = NULL;
     struct kanal *ptr;				// Kanalliste für temporäre Abfrage (Schleifen)
     ptr                   = NULL;
+
+    printf("\nStart\n");
+
+	globalkonfig.PCAdr		= 0xF001;				// lokale default PC-Adresse
+    globalkonfig.konfigpath = NULL;
+    globalkonfig.serial     = NULL;
+    globalkonfig.station	= NULL;
 
     if(DEBUG > 1)
     {
@@ -23,9 +32,8 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     }
 
     searchkonfig(&globalkonfig);							// Suchen und Laden der Konfigdatei
-    seachport(&globalkonfig);								// Suchen und Laden der serielen Schnittstellen
 
-    printf("\nStart\n");
+    searchport(&globalkonfig);								// Suchen und Laden der serielen Schnittstellen
 
     // Testausgabe für Simulator zum erstellen der Datenfelder für Floatzahlen
     //union messdatenmix testfall;
@@ -34,21 +42,52 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
 
     if(globalkonfig.konfigpath == NULL)
     {
-		globalkonfig.PCAdr		  = 0xF001;				// lokale PC-Adresse
+    	getStationList(&globalkonfig,*globalkonfig.serial,7,1,255);	// Suchen nach den Stationsaddressen (Beispiel: Nur Typ 7 - von 1 bis 3)
+    	getDeviceinfo(globalkonfig.station);	// Laden der Stationsdaten (Globale Stationsdaten)
+    	getChanList(globalkonfig.station);		// Laden der Kanaldaten (Kanallisten)
 
-		globalkonfig.station = malloc(sizeof(struct devdaten));
-		globalkonfig.station->serialport  	= globalkonfig.serial->serialport; // link auf die default Seriale Schnittstelle
-		globalkonfig.station->StationAdr    = 0x7001;			// erste Stationsadresse (Initialisierung)
-		globalkonfig.station->channels      = NULL;				// Leere Liste der Kanäle (Initialisierung)
-		globalkonfig.station->EEPROMSize    = -1;				// Unbekanntes EEPROM (Initialisierung)
-		globalkonfig.station->AnzahlKanaele = -1;				// Anzahl der Kanäle unbekannt (Initialisierung)
-		globalkonfig.station->AnzahlBloecke = -1;				// Anzahl der Blöcke (Kanallisten % 100) - (Initialisierung)
+    	chanlist1[1] =100;
+    	chanlist1[2] =160;
+    	chanlist1[3] =110;
+    	chanlist1[4] =170;
+    	chanlist1[5] =111;
+    	chanlist1[6] =112;
+    	chanlist1[7] =114;
+    	chanlist1[8] =200;
+    	chanlist1[9] =260;
+    	chanlist1[10]=205;
+    	chanlist1[11]=265;
+    	chanlist1[12]=210;
+    	chanlist1[13]=270;
+    	chanlist1[14]=215;
+    	chanlist1[15]=300;
+    	chanlist1[16]=360;
+    	chanlist1[17]=305;
+    	chanlist1[18]=365;
+    	chanlist1[19]=310;
+    	chanlist1[20]=10000;
+
+    	chanlist2[1] =400;
+    	chanlist2[2] =460;
+    	chanlist2[3] =480;
+    	chanlist2[4] =401;
+    	chanlist2[5] =403;
+    	chanlist2[6] =500;
+    	chanlist2[7] =580;
+    	chanlist2[8] =501;
+    	chanlist2[9] =503;
+    	chanlist2[10]=805;
+    	chanlist2[11]=806;
+    	chanlist2[12]=510;
+    	chanlist2[13]=600;
+    	chanlist2[14]=605;
+    	chanlist2[15]=700;
+    	chanlist2[16]=800;
+    	chanlist2[17]=617;
+    	chanlist2[18]=677;
+    	chanlist2[19]=900;
+    	chanlist2[20]=960;
     }
-
-    getStationList(&globalkonfig,*globalkonfig.serial,7,1,3);	// Suchen nach den Stationsaddressen (Beispiel: Nur Typ 7 - von 1 bis 3)
-
-    getDeviceinfo(globalkonfig.station);	// Laden der Stationsdaten (Globale Stationsdaten)
-    getChanList(globalkonfig.station);	// Laden der Kanaldaten (Kanallisten)
 
 // Permanente Schleife zum Laden und Speichern der Wetterdaten
     do{
@@ -57,8 +96,8 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
     	channels->nummer = -1;
     	getSingleData(globalkonfig.station,channels,900);	// Lade einen Datenpunkt
 
-    	int chanlist[20]={100,105,110,115,120,125,130,135,140,145,150,155,160,165,170,175,180,185,190,195};
-    	getMultiData(globalkonfig.station,channels,chanlist);	// Lade mehrere Datenpunkte (max. 20)
+    	getMultiData(globalkonfig.station,channels,chanlist1);	// Lade mehrere Datenpunkte (max. 20)
+    	getMultiData(globalkonfig.station,channels,chanlist2);	// Lade mehrere Datenpunkte (max. 20)
 
     	ptr = channels;
     	while(ptr != NULL)

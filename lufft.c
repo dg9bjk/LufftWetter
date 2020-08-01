@@ -167,7 +167,7 @@ unsigned short crc_sum(unsigned char array[SerialArray],int count) // DatenArray
 }
 
 // Sende Abfrage Versionsnummer
-int encode(unsigned char arrayTX[SerialArray],int command,struct devdaten *daten,struct kanal *channels,int opt1,int opt2[])
+int encode(unsigned char arrayTX[SerialArray],int command,struct devdaten *daten,int opt1,int opt2[])
 {
     unsigned short crcresult;	// CRC-Berechnung
     int runstop = 0;
@@ -915,7 +915,7 @@ int request(int cmd,struct devdaten *station,struct kanal *channels,int i,int li
     memset(arrayTX,0,SerialArray);
     memset(arrayRX,0,SerialArray);
     
-    count = encode(arrayTX,cmd,station,channels,i,list);
+    count = encode(arrayTX,cmd,station,i,list);
     if(count > 0)
     {
         if(DEBUG > 2)

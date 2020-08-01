@@ -2,19 +2,67 @@
 
 int readKonfig(char *konfig,struct master *globalkonfig)
 {
+	int i;
 	int fd;
-	char line[255];
+	int filesize;
+	int length;
+	int aktpos,startpos,stoppos,stpos;
+	char *inputline;
+	struct stat attribut;
+
+	struct segm
+	{
+		char digit[20];
+		struct segm next;
+	};
+
+	struct kanelparameter
+	{
+		char nummer[5];
+		char anzname[50];
+		char anzeinheit[15];
+		char abtast[5];
+		struct segm anzdigit;
+		struct kanalparameter next;
+	};
+
+	struct parameter
+	{
+		char name[20];
+		char wert[20];
+		struct parameter next;
+	};
+
+	struct sector
+	{
+		char name[20];
+		char nummer[5];
+		struct parameter param;
+		struct kanalparameter kanal;
+		struct sector next;
+	};
+
 
 	fd = open(konfig,O_RDONLY);
 	if(fd > 0)
 	{
 		printf("File: %s\n",konfig);
 
-		while(read(fd,&line,255))
-		{
-			printf("Line: %s",line);
-		};
+		stat(konfig, &attribut);			// Laden der Attribute
+		filesize = attribut.st_size + 2;	// Zwei Byte zusätzlich, wegen NULL-Zeichen;
+		inputline = malloc(filesize);
+		memset(inputline,0x0,filesize);
 
+		length = read(fd,inputline,filesize);		// Auslesen der Datei
+		if(DEBUG > 1)
+			printf("Line: %s",inputline);
+
+		for(i=0;i < length;i++)
+		{
+
+		}
+
+		free(inputline);
 		close(fd);
 
 		return(1);

@@ -12,7 +12,7 @@ int SerialPortInit(char *serialport)
     	fd=open(serialport,O_RDWR | O_NOCTTY | O_NDELAY |O_NONBLOCK);	// File-Zeiger öffnen
     	if(fd == -1)													// Fehler bei Öffnen des File-Zeiger
     	{
-    		printf(" Error! in Opening Serial-Port\n");
+    		printf(" Error! in Opening Serial-Port: %s\n",serialport);
     		return(-1);
     	}
     	else															// File-Zeiger ist vorhanden und ist lesbar
