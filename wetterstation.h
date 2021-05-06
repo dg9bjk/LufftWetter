@@ -25,6 +25,10 @@
 #define TIMEOUT 10			// Sekunden Verzögerung für den nächsten Zyklus
 #define SerialArray 260     // Zeichenpuffer der Serial-Schnittstelle (max. 256 Byte möglich + 4 Reserve
 
+#define STARTSCANSTATION 1	// Bei Stationssuche Start-Adresse
+#define STOPSCANSTATION 4	// Bei Stationssuche Stop-Adresse
+#define WSxTyp	7		// Wettersationstyp (default)
+
 // Datenstrukturen
 union messdatenmix								// Zum Einlesen der Daten
 {

@@ -17,7 +17,7 @@ int SerialPortInit(char *serialport)
     	}
     	else															// File-Zeiger ist vorhanden und ist lesbar
     	{
-    		printf(" Serial-Port Opened Successfully\n");
+    		printf(" Serial-Port Opened Successfully: %s\n",serialport);
 
     		tcgetattr(fd, &SerialPortSettings);							// Lesen der Portparameter
 
@@ -64,8 +64,8 @@ int searchport(struct master *globalkonfig)
     int fdserial = 0;
 
 
-		static char serialport[10][14] = {
-	    		{"/dev/ttyS0"},
+    static char serialport[10][14] = {
+		    		{"/dev/ttyS0"},
 				{"/dev/ttyS1"},
 				{"/dev/ttyS2"},
 				{"/dev/ttyS3"},
@@ -88,32 +88,34 @@ int searchport(struct master *globalkonfig)
 	    	{
 				serptr->fdserial   = fdserial;
 				serptr->serialport = (char*)&serialport[i];
-	    		if((getStationList(globalkonfig,*serptr,7,1,255)) > 0)
+	    		if((getStationList(globalkonfig,*serptr,WSxTyp,STARTSCANSTATION,STOPSCANSTATION)) > 0)
 	    		{
-					if(globalkonfig->serial == NULL)
+				if(globalkonfig->serial == NULL)
+				{
+					globalkonfig->serial = serptr;
+					serptr = malloc(sizeof(struct serport));
+					serptr->next = NULL;
+				}
+				else
+				{
+					testserport=globalkonfig->serial;
+					while(testserport == NULL)
 					{
-						globalkonfig->serial = serptr;
-						serptr = malloc(sizeof(struct serport));
-						serptr->next = NULL;
-					}
-					else
-					{
-						testserport=globalkonfig->serial;
-						while(testserport != NULL)
+						if(testserport->next == NULL)
 						{
-							if(testserport->next == NULL)
-							{
-								testserport->next = serptr;
-								serptr = malloc(sizeof(struct serport));
-								serptr->next = NULL;
-							}
-							else
-								testserport = testserport->next;
+							testserport->next = serptr;
+							serptr = malloc(sizeof(struct serport));
+							serptr->next = NULL;
+						}
+						else
+						{
+							testserport = testserport->next;
 						}
 					}
+				}
 	    		}
 	    		else
-	    			close(fdserial);
+    			close(fdserial);
 	    	}
 	    }
 	    free(serptr);

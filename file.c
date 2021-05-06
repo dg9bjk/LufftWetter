@@ -13,7 +13,7 @@ int readKonfig(char *konfig,struct master *globalkonfig)
 	struct segm
 	{
 		char digit[20];
-		struct segm next;
+		struct segm *next;
 	};
 
 	struct kanelparameter
@@ -22,24 +22,24 @@ int readKonfig(char *konfig,struct master *globalkonfig)
 		char anzname[50];
 		char anzeinheit[15];
 		char abtast[5];
-		struct segm anzdigit;
-		struct kanalparameter next;
+		struct segm *anzdigit;
+		struct kanalparameter *next;
 	};
 
 	struct parameter
 	{
 		char name[20];
 		char wert[20];
-		struct parameter next;
+		struct parameter *next;
 	};
 
 	struct sector
 	{
 		char name[20];
 		char nummer[5];
-		struct parameter param;
-		struct kanalparameter kanal;
-		struct sector next;
+		struct parameter *param;
+		struct kanalparameter *kanal;
+		struct sector *next;
 	};
 
 
