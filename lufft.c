@@ -339,7 +339,7 @@ int LufftAddr(unsigned char klasse,unsigned char addresse)
 
 int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,struct kanal *channels,struct livedata *aktdata)
 {
-    int i,j;
+    int i,j,joffset;
     struct kanal *ptr;
     int chnummer;
 
@@ -731,9 +731,8 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                             	arrayRX[j];   // 12 -länge Substring
                                             	arrayRX[j+1]; // 13 -Status Substring
                                             	arrayRX[j+2]; // 14 -Kanal Low
-												arrayRX[j+3]; // 15 -Kanal High
-												arrayRX[j+4]; // 16 -Datentyp
-
+						arrayRX[j+3]; // 15 -Kanal High
+						arrayRX[j+4]; // 16 -Datentyp
                                             	arrayRX[j+5]; // 17 -Daten bis zu 8*
                                             	arrayRX[j+6]; // 18
                                             	arrayRX[j+7]; // 19
@@ -742,7 +741,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                             	arrayRX[j+10]; // 22
                                             	arrayRX[j+11]; // 23
                                             	arrayRX[j+12]; // 24
-												*/
+						*/
                                             	chnummer = (arrayRX[j+3]*256) + arrayRX[j+2];
 
                                                 ptr->datetyp = arrayRX[j+4];
@@ -766,11 +765,13 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                                         if(ptr->datetyp == 0x10 || ptr->datetyp == 0x11)
                                                         {
                                                             ptr->value.z[0] = arrayRX[j+5];
+                                                            joffset = 6;
                                                         }
                                                         else if(ptr->datetyp == 0x12 || ptr->datetyp == 0x13)
                                                         {
                                                             ptr->value.z[0] = arrayRX[j+5];
                                                             ptr->value.z[1] = arrayRX[j+6];
+                                                            joffset = 7;
                                                         }
                                                         else if(ptr->datetyp == 0x14 || ptr->datetyp == 0x15 || ptr->datetyp == 0x16)
                                                         {
@@ -778,6 +779,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                                             ptr->value.z[1] = arrayRX[j+6];
                                                             ptr->value.z[2] = arrayRX[j+7];
                                                             ptr->value.z[3] = arrayRX[j+8];
+                                                            joffset = 9;
                                                         }
                                                         else if(ptr->datetyp == 0x17)
                                                         {
@@ -789,6 +791,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                                             ptr->value.z[5] = arrayRX[j+10];
                                                             ptr->value.z[6] = arrayRX[j+11];
                                                             ptr->value.z[7] = arrayRX[j+12];
+                                                            joffset = 13;
                                                         }
                                                         else
                                                         {
@@ -800,6 +803,8 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                                             ptr->value.z[5] = 0x00;
                                                             ptr->value.z[6] = 0x00;
                                                             ptr->value.z[7] = 0x00;
+                                                            joffset = 13;
+
                                                         }
                                                     }
                                                     else
@@ -822,7 +827,7 @@ int decode(unsigned char arrayRX[SerialArray],int count,struct devdaten *daten,s
                                                             printf("\n");
                                                 }
 
-                                            	j = j+ arrayRX[j];
+                                            	j = j+ joffset;// arrayRX[j];
                                             	ptr->next = malloc(sizeof(struct kanal));
                                             	ptr = ptr->next;
                                             	ptr->next=NULL;

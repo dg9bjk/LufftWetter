@@ -102,10 +102,24 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
 //    	getSingleData(globalkonfig.station,channels,900);	// Lade einen Datenpunkt
 //    	getSingleData(globalkonfig.station,channels,100);	// Lade einen Datenpunkt
 //    	getSingleData(globalkonfig.station,channels,10000);	// Lade einen Datenpunkt
-
     	getMultiData(globalkonfig.station,channels,chanlist1);	// Lade mehrere Datenpunkte (max. 20)
-    	getMultiData(globalkonfig.station,channels,chanlist2);	// Lade mehrere Datenpunkte (max. 20)
+    	ptr = channels;
+    	while(ptr != NULL)
+    	{
+    		printf("Ergebnis: Kanal %d %s ",ptr->nummer,ptr->groesse);
+			printMWtyp(ptr->mwtyp);
+			printValueByDatatyp(ptr->datetyp,ptr->value);
+			printf(" %s",ptr->einheit);
+			printf("\n");
+			ptr = ptr->next;
+    	}
+        free (channels);
+    	channels = NULL;
 
+    	channels= malloc(sizeof(struct kanal));
+    	channels->next = NULL;
+    	channels->nummer = -1;
+    	getMultiData(globalkonfig.station,channels,chanlist2);	// Lade mehrere Datenpunkte (max. 20)
     	ptr = channels;
     	while(ptr != NULL)
     	{
@@ -119,8 +133,8 @@ int main(int cmdcnt,char *cmdparameter[],char *env[])
         free (channels);
     	channels = NULL;
         
-//        getStatus(globalkonfig.station);	// Letzter Status der Kommunikation
-//        getError(globalkonfig.station);		// Letzter Fehler der Kommunikation
+        getStatus(globalkonfig.station);	// Letzter Status der Kommunikation
+        getError(globalkonfig.station);		// Letzter Fehler der Kommunikation
 
     	if(errorcnt > 10)
         	doReset(globalkonfig.station);	// Software-Reset für den Fehlerfall
